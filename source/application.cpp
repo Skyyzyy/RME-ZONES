@@ -22,6 +22,7 @@
 #include "common_windows.h"
 #include "preferences.h"
 #include "main_menubar.h"
+#include "hotkey_manager.h"
 #include "artprovider.h"
 #include "theme.h"
 
@@ -188,6 +189,10 @@ bool Application::OnInit() {
 	g_gui.root = newd MainFrame(__W_RME_APPLICATION_NAME__, wxDefaultPosition, wxSize(700, 500));
 	SetTopWindow(g_gui.root);
 	g_gui.SetTitle("");
+
+	g_hotkey_manager.DiscoverActions(g_gui.root->GetMainMenuBar());
+	g_hotkey_manager.LoadCustom();
+	g_hotkey_manager.RebuildAccelerators(g_gui.root);
 
 	g_gui.root->LoadRecentFiles();
 
@@ -601,6 +606,7 @@ void MainFrame::OnExit(wxCloseEvent& event) {
 	// Persist only the cheap state, then exit immediately to avoid the slow
 	// teardown of large maps (CloseAllEditors/Destroy) that can freeze on close.
 	g_gui.SaveHotkeys();
+	g_hotkey_manager.SaveCustom();
 	g_gui.SavePerspective();
 	g_gui.root->SaveRecentFiles();
 	g_gui.SaveUserCreatures();

@@ -29,6 +29,7 @@
 #include "settings.h"
 
 #include "gui.h"
+#include "hotkey_manager.h"
 
 #include <unordered_set>
 
@@ -209,6 +210,7 @@ MainMenuBar::MainMenuBar(MainFrame* frame) :
 	MAKE_ACTION(EXTENSIONS, wxITEM_NORMAL, OnListExtensions);
 	MAKE_ACTION(GOTO_WEBSITE, wxITEM_NORMAL, OnGotoWebsite);
 	MAKE_ACTION(ABOUT, wxITEM_NORMAL, OnAbout);
+	MAKE_ACTION(SHOW_HOTKEYS, wxITEM_NORMAL, OnShowHotkeys);
 
 	// A deleter, this way the frame does not need
 	// to bother deleting us.
@@ -934,6 +936,10 @@ void MainMenuBar::OnGotoWebsite(wxCommandEvent& WXUNUSED(event)) {
 void MainMenuBar::OnAbout(wxCommandEvent& WXUNUSED(event)) {
 	AboutWindow about(frame);
 	about.ShowModal();
+}
+
+void MainMenuBar::OnShowHotkeys(wxCommandEvent& WXUNUSED(event)) {
+	g_hotkey_manager.ShowHotkeyDialog(frame, this);
 }
 
 void MainMenuBar::OnUndo(wxCommandEvent& WXUNUSED(event)) {

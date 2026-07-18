@@ -168,6 +168,8 @@ namespace MenuBar {
 		REMOVE_ON_SELECTION_DUPLICATED_ITEMS,
 		SEARCH_ON_MAP_WALLS_UPON_WALLS,
 		SEARCH_ON_SELECTION_WALLS_UPON_WALLS,
+
+		SHOW_HOTKEYS,
 	};
 }
 
@@ -308,6 +310,10 @@ public:
 	void OnListExtensions(wxCommandEvent& event);
 	void OnGotoWebsite(wxCommandEvent& event);
 	void OnAbout(wxCommandEvent& event);
+	void OnShowHotkeys(wxCommandEvent& event);
+
+	// Access actions map for hotkey discovery
+	const std::map<std::string, MenuBar::Action*>& GetActions() const { return actions; }
 
 protected:
 	// Load and returns a menu item, also sets accelerator
