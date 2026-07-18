@@ -24,6 +24,10 @@ static bool ValidateHotkeyString(const wxString& hotkey, wxString& error) {
 		if (key.length() == 1 && key[0] >= 'A' && key[0] <= 'Z') {
 			return true;
 		}
+		// Accept digits 0-9
+		if (key.length() == 1 && key[0] >= '0' && key[0] <= '9') {
+			return true;
+		}
 		if (key.StartsWith("F") && key.length() <= 3) {
 			long num;
 			wxString numStr = key.Mid(1);
@@ -45,7 +49,7 @@ static bool ValidateHotkeyString(const wxString& hotkey, wxString& error) {
 
 	wxArrayString parts = wxSplit(hotkey, '+');
 	if (parts.IsEmpty() || !IsValidKey(parts.Last())) {
-		error = "Invalid key. Must be A-Z, F1-F12, or a special key";
+		error = "Invalid key. Must be A-Z, 0-9, F1-F12, or a special key";
 		return false;
 	}
 	for (size_t i = 0; i < parts.size() - 1; ++i) {
@@ -67,6 +71,8 @@ HotkeyDialog::HotkeyDialog(wxWindow* parent, MainMenuBar* menubar,
 	std::unordered_map<MenuBar::ActionID, HotkeyManager::ActionInfo>& actionInfo)
 	: wxDialog(parent, wxID_ANY, "Hotkey Configuration", wxDefaultPosition, wxSize(850, 550))
 	, menubar_(menubar)
+	, entriesRef_(entries)
+	, actionInfoRef_(actionInfo)
 	, entries_(entries)
 	, actionInfo_(actionInfo)
 {
@@ -167,6 +173,14 @@ HotkeyDialog::HotkeyDialog(wxWindow* parent, MainMenuBar* menubar,
 	wxBoxSizer* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 	wxButton* saveButton = new wxButton(this, wxID_OK, "Save");
 	wxButton* cancelButton = new wxButton(this, wxID_CANCEL, "Cancel");
+	
+	// Commit changes on Save
+	saveButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
+		entriesRef_ = entries_;
+		actionInfoRef_ = actionInfo_;
+		event.Skip(); // Allow dialog to close
+	});
+	
 	buttonSizer->Add(saveButton, 0, wxRIGHT, 5);
 	buttonSizer->Add(cancelButton);
 	mainSizer->Add(buttonSizer, 0, wxALIGN_RIGHT | wxALL, 5);
@@ -347,6 +361,11 @@ void HotkeyDialog::HandleModifierKey(int keyCode) {
 	
 	wxString currentValue = hotkeyEdit_->GetValue();
 	
+	// If current value contains a completed key (not ending with +), start fresh
+	if (!currentValue.empty() && !currentValue.EndsWith("+")) {
+		currentValue = "";
+	}
+	
 	// Don't add duplicate modifiers
 	if (currentValue.Contains(modStr)) {
 		return;
@@ -456,6 +475,15 @@ bool HotkeyDialog::CheckHotkeyConflict(const wxString& hotkey, MenuBar::ActionID
 		if (result == wxYES) {
 			// Clear conflicting hotkey
 			entries_[actionId].overrideKey = "";
+			
+			// Update the conflicting action's row in the list
+			for (int i = 0; i < hotkeyList_->GetItemCount(); ++i) {
+				if (static_cast<MenuBar::ActionID>(hotkeyList_->GetItemData(i)) == actionId) {
+					hotkeyList_->SetItem(i, 2, "(none)");
+					break;
+				}
+			}
+			
 			return true;
 		}
 		

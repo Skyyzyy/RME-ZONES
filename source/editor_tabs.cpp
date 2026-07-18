@@ -118,6 +118,9 @@ void MapTabbook::AddTab(EditorTab* tab, bool select) {
 }
 
 void MapTabbook::SetFocusedTab(int idx) {
+	if (!notebook || idx < 0 || idx >= static_cast<int>(notebook->GetPageCount())) {
+		return;
+	}
 	notebook->SetSelection(idx);
 }
 

@@ -63,8 +63,10 @@ private:
 	std::set<wxString> BuildHelpSearchMatches(const wxString& search) const;
 
 	MainMenuBar* menubar_;
-	std::unordered_map<MenuBar::ActionID, HotkeyEntry>& entries_;
-	std::unordered_map<MenuBar::ActionID, HotkeyManager::ActionInfo>& actionInfo_;
+	std::unordered_map<MenuBar::ActionID, HotkeyEntry>& entriesRef_;
+	std::unordered_map<MenuBar::ActionID, HotkeyManager::ActionInfo>& actionInfoRef_;
+	std::unordered_map<MenuBar::ActionID, HotkeyEntry> entries_;
+	std::unordered_map<MenuBar::ActionID, HotkeyManager::ActionInfo> actionInfo_;
 	std::vector<DisplayItem> displayItems_;
 	std::vector<MenuHelpEntry> menuHelpEntries_;
 	wxListCtrl* hotkeyList_ = nullptr;

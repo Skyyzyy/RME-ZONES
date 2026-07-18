@@ -122,6 +122,9 @@ void HotkeyManager::RebuildAccelerators(wxWindow* target) {
 	if (!accelEntries.empty()) {
 		wxAcceleratorTable table(static_cast<int>(accelEntries.size()), accelEntries.data());
 		target->SetAcceleratorTable(table);
+	} else {
+		// Clear accelerator table when no bindings remain
+		target->SetAcceleratorTable(wxNullAcceleratorTable);
 	}
 }
 
@@ -134,49 +137,65 @@ wxString HotkeyManager::GetEffectiveKey(MenuBar::ActionID actionId) const {
 }
 
 void HotkeyManager::SyncToXml() {
-	XmlMenuData xmlData = ParseMenubarXml();
-	
 	wxString path = g_gui.GetDataDirectory() + "menubar.xml";
 	pugi::xml_document doc;
 	if (!doc.load_file(path.mb_str())) {
 		return;
 	}
 
-	// Update hotkey attributes for actions with overrides
-	for (const auto& [actionId, entry] : entries_) {
-		if (!entry.overrideKey.has_value()) {
-			continue;
-		}
-
-		auto infoIt = actionInfo_.find(actionId);
-		if (infoIt == actionInfo_.end()) {
-			continue;
-		}
-
-		std::string actionName = infoIt->second.name.ToStdString();
-		auto nodeIt = xmlData.nodes.find(actionName);
-		if (nodeIt != xmlData.nodes.end()) {
-			std::string effectiveKey = entry.EffectiveKey().ToStdString();
-			pugi::xml_attribute attr = nodeIt->second.attribute("hotkey");
-			if (attr) {
-				attr.set_value(effectiveKey.c_str());
-			}
-		}
+	// Build action name lookup
+	std::unordered_map<std::string, MenuBar::ActionID> nameToId;
+	for (const auto& [actionId, info] : actionInfo_) {
+		nameToId[info.name.ToStdString()] = actionId;
 	}
 
-	// Update help text for all actions
-	for (const auto& [actionId, info] : actionInfo_) {
-		std::string actionName = info.name.ToStdString();
-		auto nodeIt = xmlData.nodes.find(actionName);
-		if (nodeIt != xmlData.nodes.end()) {
-			std::string help = info.help.ToStdString();
-			pugi::xml_attribute attr = nodeIt->second.attribute("help");
-			if (attr) {
-				attr.set_value(help.c_str());
-			} else {
-				nodeIt->second.append_attribute("help") = help.c_str();
+	// Traverse menubar.xml and update nodes in the live document
+	std::function<void(pugi::xml_node)> updateNodes = [&](pugi::xml_node node) {
+		for (pugi::xml_node item = node.child("item"); item; item = item.next_sibling("item")) {
+			std::string actionStr = item.attribute("action").as_string();
+			if (actionStr.empty()) {
+				continue;
+			}
+
+			auto idIt = nameToId.find(actionStr);
+			if (idIt == nameToId.end()) {
+				continue;
+			}
+
+			MenuBar::ActionID actionId = idIt->second;
+
+			// Update hotkey if override exists
+			auto entryIt = entries_.find(actionId);
+			if (entryIt != entries_.end() && entryIt->second.overrideKey.has_value()) {
+				std::string effectiveKey = entryIt->second.EffectiveKey().ToStdString();
+				pugi::xml_attribute attr = item.attribute("hotkey");
+				if (attr) {
+					attr.set_value(effectiveKey.c_str());
+				}
+			}
+
+			// Update help text
+			auto infoIt = actionInfo_.find(actionId);
+			if (infoIt != actionInfo_.end()) {
+				std::string help = infoIt->second.help.ToStdString();
+				pugi::xml_attribute attr = item.attribute("help");
+				if (attr) {
+					attr.set_value(help.c_str());
+				} else {
+					item.append_attribute("help") = help.c_str();
+				}
 			}
 		}
+
+		// Recurse into submenus
+		for (pugi::xml_node menu = node.child("menu"); menu; menu = menu.next_sibling("menu")) {
+			updateNodes(menu);
+		}
+	};
+
+	pugi::xml_node menubarNode = doc.child("menubar");
+	if (menubarNode) {
+		updateNodes(menubarNode);
 	}
 
 	if (!doc.save_file(path.mb_str())) {
@@ -187,6 +206,7 @@ void HotkeyManager::SyncToXml() {
 void HotkeyManager::ShowHotkeyDialog(wxWindow* parent, MainMenuBar* menubar) {
 	HotkeyDialog dlg(parent, menubar, entries_, actionInfo_);
 	if (dlg.ShowModal() == wxID_OK) {
+		// Dialog commits changes back to entries_ and actionInfo_ on OK
 		SyncToXml();
 		RebuildAccelerators(g_gui.root);
 		menubar->UpdateLabelHotkeys();
@@ -194,4 +214,5 @@ void HotkeyManager::ShowHotkeyDialog(wxWindow* parent, MainMenuBar* menubar) {
 			g_gui.root->UpdateMenubar();
 		}
 	}
+	// On Cancel, dialog copies are discarded automatically
 }
