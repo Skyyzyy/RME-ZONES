@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 #include <wx/dialog.h>
+#include <wx/event.h>
 
 class wxListCtrl;
 class wxTextCtrl;
@@ -22,6 +23,8 @@ public:
 private:
 	void BuildDisplayItems();
 	void PopulateList();
+	void OnKeyDown(wxKeyEvent& event);
+	void OnSetButton(wxCommandEvent& event);
 
 	struct DisplayItem {
 		wxString category;

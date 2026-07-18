@@ -710,12 +710,6 @@ wxObject* MainMenuBar::LoadItem(pugi::xml_node node, wxMenu* parent, wxArrayStri
 		}
 
 		const MenuBar::Action& act = *it->second;
-		wxAcceleratorEntry* entry = wxAcceleratorEntry::Create(wxstr(hotkey));
-		if (entry) {
-			delete entry; // accelerators.push_back(entry);
-		} else {
-			warnings.push_back("Invalid hotkey.");
-		}
 
 		wxMenuItem* tmp = parent->Append(
 			MAIN_FRAME_MENU + act.id, // ID

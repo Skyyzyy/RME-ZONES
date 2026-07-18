@@ -83,9 +83,7 @@ void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 		actionInfo_[actionId] = info;
 
 		HotkeyEntry entry;
-		entry.action = actionId;
 		entry.defaultKey = defaultKey;
-		entry.description = description;
 		entries_[actionId] = entry;
 	}
 }
@@ -177,7 +175,9 @@ void HotkeyManager::SyncToXml() {
 		}
 	}
 
-	doc.save_file(path.mb_str());
+	if (!doc.save_file(path.mb_str())) {
+		wxLogWarning("Failed to save hotkeys to menubar.xml");
+	}
 }
 
 void HotkeyManager::ShowHotkeyDialog(wxWindow* parent, MainMenuBar* menubar) {

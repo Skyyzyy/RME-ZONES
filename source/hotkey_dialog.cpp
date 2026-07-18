@@ -8,7 +8,6 @@
 #include <wx/msgdlg.h>
 
 #include <algorithm>
-#include <functional>
 
 static bool ValidateHotkeyString(const wxString& hotkey, wxString& error) {
 	if (hotkey.empty()) {
@@ -82,87 +81,7 @@ HotkeyDialog::HotkeyDialog(wxWindow* parent, MainMenuBar* menubar,
 		wxDefaultPosition, wxSize(150, -1), wxTE_PROCESS_ENTER | wxTE_PROCESS_TAB);
 	hotkeyEdit_->SetEditable(false);
 
-	hotkeyEdit_->Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent& event) {
-		int keyCode = event.GetKeyCode();
-
-		if (keyCode == WXK_ESCAPE) {
-			event.Skip();
-			return;
-		}
-
-		if (keyCode == WXK_SHIFT || keyCode == WXK_CONTROL || keyCode == WXK_ALT) {
-			currentModifiers_.insert(keyCode);
-			wxString currentValue = hotkeyEdit_->GetValue();
-			wxString modStr;
-			if (keyCode == WXK_SHIFT) modStr = "Shift+";
-			else if (keyCode == WXK_CONTROL) modStr = "Ctrl+";
-			else if (keyCode == WXK_ALT) modStr = "Alt+";
-
-			if (!currentValue.Contains(modStr)) {
-				if (!currentValue.empty() && !currentValue.EndsWith("+")) {
-					currentValue += "+";
-				}
-				currentValue += modStr;
-				hotkeyEdit_->SetValue(currentValue);
-			}
-			event.Skip(false);
-			return;
-		}
-
-		if ((keyCode >= 'A' && keyCode <= 'Z') ||
-			(keyCode >= '0' && keyCode <= '9') ||
-			(keyCode >= WXK_F1 && keyCode <= WXK_F12) ||
-			keyCode == WXK_SPACE || keyCode == WXK_TAB || keyCode == WXK_RETURN ||
-			keyCode == WXK_LEFT || keyCode == WXK_RIGHT ||
-			keyCode == WXK_UP || keyCode == WXK_DOWN ||
-			keyCode == WXK_HOME || keyCode == WXK_END ||
-			keyCode == WXK_PAGEUP || keyCode == WXK_PAGEDOWN ||
-			keyCode == WXK_INSERT || keyCode == WXK_DELETE) {
-
-			if (keyCode >= 'a' && keyCode <= 'z') {
-				keyCode = keyCode - 'a' + 'A';
-			}
-
-			static const std::unordered_map<int, const char*> kSpecialKeys = {
-				{WXK_SPACE, "Space"}, {WXK_TAB, "Tab"}, {WXK_RETURN, "Enter"},
-				{WXK_ESCAPE, "Esc"}, {WXK_LEFT, "Left"}, {WXK_RIGHT, "Right"},
-				{WXK_UP, "Up"}, {WXK_DOWN, "Down"},
-				{WXK_HOME, "Home"}, {WXK_END, "End"},
-				{WXK_PAGEUP, "PgUp"}, {WXK_PAGEDOWN, "PgDn"},
-				{WXK_INSERT, "Insert"}, {WXK_DELETE, "Delete"}
-			};
-
-			wxString finalKey;
-			if (keyCode >= WXK_F1 && keyCode <= WXK_F12) {
-				finalKey = wxString::Format("F%d", keyCode - WXK_F1 + 1);
-			} else {
-				auto keyIt = kSpecialKeys.find(keyCode);
-				if (keyIt != kSpecialKeys.end()) {
-					finalKey = keyIt->second;
-				} else {
-					finalKey = wxString(static_cast<wxChar>(keyCode));
-				}
-			}
-
-			wxString currentValue = hotkeyEdit_->GetValue();
-			if (!currentValue.empty() && !currentValue.EndsWith("+")) {
-				size_t lastPlus = currentValue.find_last_of('+');
-				if (lastPlus != wxString::npos) {
-					currentValue = currentValue.substr(0, lastPlus + 1);
-				} else {
-					currentValue = "";
-				}
-			}
-			currentValue += finalKey;
-			hotkeyEdit_->SetValue(currentValue);
-			event.Skip(false);
-			return;
-		}
-
-		if (keyCode != WXK_BACK) {
-			event.Skip(false);
-		}
-	});
+	hotkeyEdit_->Bind(wxEVT_KEY_DOWN, &HotkeyDialog::OnKeyDown, this);
 
 	hotkeyEdit_->Bind(wxEVT_KEY_UP, [this](wxKeyEvent& event) {
 		if (event.GetKeyCode() == WXK_BACK) {
@@ -189,64 +108,7 @@ HotkeyDialog::HotkeyDialog(wxWindow* parent, MainMenuBar* menubar,
 		hotkeyEdit_->SetValue(hk);
 	});
 
-	// Handle set button
-	setButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-		wxString newHotkey = hotkeyEdit_->GetValue();
-		wxString error;
-
-		long selectedIndex = hotkeyList_->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-		if (selectedIndex == -1) {
-			wxMessageBox("Please select an action first", "Error", wxOK | wxICON_ERROR);
-			return;
-		}
-
-		MenuBar::ActionID actionId = static_cast<MenuBar::ActionID>(hotkeyList_->GetItemData(selectedIndex));
-
-		if (!ValidateHotkeyString(newHotkey, error)) {
-			wxMessageBox(error, "Invalid Hotkey", wxOK | wxICON_ERROR);
-			return;
-		}
-
-		// Check for duplicates
-		for (const auto& pair : entries_) {
-			if (pair.first != actionId && !pair.second.EffectiveKey().empty() &&
-				pair.second.EffectiveKey() == newHotkey && !newHotkey.empty()) {
-				auto infoIt = actionInfo_.find(pair.first);
-				wxString conflictName = infoIt != actionInfo_.end() ? infoIt->second.name : wxString("Unknown");
-
-				wxMessageDialog* confirmDialog = new wxMessageDialog(
-					this,
-					"This hotkey is already assigned to: " + conflictName +
-					"\n\nDo you want to reassign it?",
-					"Duplicate Hotkey",
-					wxYES_NO | wxNO_DEFAULT | wxICON_QUESTION
-				);
-
-				if (confirmDialog->ShowModal() == wxID_YES) {
-					entries_[pair.first].overrideKey = "";
-				} else {
-					delete confirmDialog;
-					return;
-				}
-				delete confirmDialog;
-				break;
-			}
-		}
-
-		if (newHotkey.empty()) {
-			entries_[actionId].overrideKey = "";
-		} else {
-			entries_[actionId].overrideKey = newHotkey;
-		}
-
-		wxListItem item;
-		item.SetId(selectedIndex);
-		item.SetColumn(2);
-		item.SetMask(wxLIST_MASK_TEXT);
-		hotkeyList_->GetItem(item);
-		wxString displayHk = newHotkey.empty() ? wxString("(none)") : newHotkey;
-		hotkeyList_->SetItem(selectedIndex, 2, displayHk);
-	});
+	setButton->Bind(wxEVT_BUTTON, &HotkeyDialog::OnSetButton, this);
 
 	mainSizer->Add(hotkeyList_, 1, wxEXPAND | wxALL, 5);
 	mainSizer->Add(editSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
@@ -304,4 +166,138 @@ void HotkeyDialog::PopulateList() {
 		}
 		hotkeyList_->SetItem(idx, 2, hk);
 	}
+}
+
+void HotkeyDialog::OnKeyDown(wxKeyEvent& event) {
+	int keyCode = event.GetKeyCode();
+
+	if (keyCode == WXK_ESCAPE) {
+		event.Skip();
+		return;
+	}
+
+	if (keyCode == WXK_SHIFT || keyCode == WXK_CONTROL || keyCode == WXK_ALT) {
+		currentModifiers_.insert(keyCode);
+		wxString currentValue = hotkeyEdit_->GetValue();
+		wxString modStr;
+		if (keyCode == WXK_SHIFT) modStr = "Shift+";
+		else if (keyCode == WXK_CONTROL) modStr = "Ctrl+";
+		else if (keyCode == WXK_ALT) modStr = "Alt+";
+
+		if (!currentValue.Contains(modStr)) {
+			if (!currentValue.empty() && !currentValue.EndsWith("+")) {
+				currentValue += "+";
+			}
+			currentValue += modStr;
+			hotkeyEdit_->SetValue(currentValue);
+		}
+		event.Skip(false);
+		return;
+	}
+
+	if ((keyCode >= 'A' && keyCode <= 'Z') ||
+		(keyCode >= '0' && keyCode <= '9') ||
+		(keyCode >= WXK_F1 && keyCode <= WXK_F12) ||
+		keyCode == WXK_SPACE || keyCode == WXK_TAB || keyCode == WXK_RETURN ||
+		keyCode == WXK_LEFT || keyCode == WXK_RIGHT ||
+		keyCode == WXK_UP || keyCode == WXK_DOWN ||
+		keyCode == WXK_HOME || keyCode == WXK_END ||
+		keyCode == WXK_PAGEUP || keyCode == WXK_PAGEDOWN ||
+		keyCode == WXK_INSERT || keyCode == WXK_DELETE) {
+
+		if (keyCode >= 'a' && keyCode <= 'z') {
+			keyCode = keyCode - 'a' + 'A';
+		}
+
+		static const std::unordered_map<int, const char*> kSpecialKeys = {
+			{WXK_SPACE, "Space"}, {WXK_TAB, "Tab"}, {WXK_RETURN, "Enter"},
+			{WXK_ESCAPE, "Esc"}, {WXK_LEFT, "Left"}, {WXK_RIGHT, "Right"},
+			{WXK_UP, "Up"}, {WXK_DOWN, "Down"},
+			{WXK_HOME, "Home"}, {WXK_END, "End"},
+			{WXK_PAGEUP, "PgUp"}, {WXK_PAGEDOWN, "PgDn"},
+			{WXK_INSERT, "Insert"}, {WXK_DELETE, "Delete"}
+		};
+
+		wxString finalKey;
+		if (keyCode >= WXK_F1 && keyCode <= WXK_F12) {
+			finalKey = wxString::Format("F%d", keyCode - WXK_F1 + 1);
+		} else {
+			auto keyIt = kSpecialKeys.find(keyCode);
+			if (keyIt != kSpecialKeys.end()) {
+				finalKey = keyIt->second;
+			} else {
+				finalKey = wxString(static_cast<wxChar>(keyCode));
+			}
+		}
+
+		wxString currentValue = hotkeyEdit_->GetValue();
+		if (!currentValue.empty() && !currentValue.EndsWith("+")) {
+			size_t lastPlus = currentValue.find_last_of('+');
+			if (lastPlus != wxString::npos) {
+				currentValue = currentValue.substr(0, lastPlus + 1);
+			} else {
+				currentValue = "";
+			}
+		}
+		currentValue += finalKey;
+		hotkeyEdit_->SetValue(currentValue);
+		event.Skip(false);
+		return;
+	}
+
+	if (keyCode != WXK_BACK) {
+		event.Skip(false);
+	}
+}
+
+void HotkeyDialog::OnSetButton(wxCommandEvent&) {
+	wxString newHotkey = hotkeyEdit_->GetValue();
+	wxString error;
+
+	long selectedIndex = hotkeyList_->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+	if (selectedIndex == -1) {
+		wxMessageBox("Please select an action first", "Error", wxOK | wxICON_ERROR);
+		return;
+	}
+
+	MenuBar::ActionID actionId = static_cast<MenuBar::ActionID>(hotkeyList_->GetItemData(selectedIndex));
+
+	if (!ValidateHotkeyString(newHotkey, error)) {
+		wxMessageBox(error, "Invalid Hotkey", wxOK | wxICON_ERROR);
+		return;
+	}
+
+	// Check for duplicates
+	for (const auto& pair : entries_) {
+		if (pair.first != actionId && !pair.second.EffectiveKey().empty() &&
+			pair.second.EffectiveKey() == newHotkey && !newHotkey.empty()) {
+			auto infoIt = actionInfo_.find(pair.first);
+			wxString conflictName = infoIt != actionInfo_.end() ? infoIt->second.name : wxString("Unknown");
+
+			wxMessageDialog* confirmDialog = new wxMessageDialog(
+				this,
+				"This hotkey is already assigned to: " + conflictName +
+				"\n\nDo you want to reassign it?",
+				"Duplicate Hotkey",
+				wxYES_NO | wxNO_DEFAULT | wxICON_QUESTION
+			);
+
+			if (confirmDialog->ShowModal() == wxID_YES) {
+				entries_[pair.first].overrideKey = "";
+			} else {
+				delete confirmDialog;
+				return;
+			}
+			delete confirmDialog;
+			break;
+		}
+	}
+
+	if (newHotkey.empty()) {
+		entries_[actionId].overrideKey = "";
+	} else {
+		entries_[actionId].overrideKey = newHotkey;
+	}
+
+	hotkeyList_->SetItem(selectedIndex, 2, newHotkey.empty() ? wxString("(none)") : newHotkey);
 }

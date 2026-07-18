@@ -13,10 +13,8 @@
 class wxWindow;
 
 struct HotkeyEntry {
-	MenuBar::ActionID action;
 	wxString defaultKey;
 	std::optional<wxString> overrideKey;
-	wxString description;
 
 	wxString EffectiveKey() const {
 		if (overrideKey.has_value()) {
