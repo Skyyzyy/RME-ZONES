@@ -9,6 +9,7 @@
 #include "complexitem.h"
 #include "depot_conversion_validation.h"
 #include "file_transaction.h"
+#include "filehandle.h"
 #include "gui.h"
 #include "iomap_otbm.h"
 #include "map.h"

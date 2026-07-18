@@ -50,7 +50,6 @@ private:
 	};
 	
 	struct XmlMenuData {
-		std::unordered_map<std::string, pugi::xml_node> nodes;
 		std::unordered_map<std::string, XmlActionData> actions;
 		std::unordered_map<std::string, wxString> categories;
 	};

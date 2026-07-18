@@ -29,9 +29,6 @@ HotkeyManager::XmlMenuData HotkeyManager::ParseMenubarXml() {
 		for (pugi::xml_node item = node.child("item"); item; item = item.next_sibling("item")) {
 			std::string actionStr = item.attribute("action").as_string();
 			if (!actionStr.empty()) {
-				// Collect node
-				data.nodes[actionStr] = item;
-				
 				// Collect action data
 				std::string hotkey = item.attribute("hotkey").as_string();
 				std::string help = item.attribute("help").as_string();
@@ -171,6 +168,9 @@ void HotkeyManager::SyncToXml() {
 				pugi::xml_attribute attr = item.attribute("hotkey");
 				if (attr) {
 					attr.set_value(effectiveKey.c_str());
+				} else {
+					// Append hotkey attribute when absent
+					item.append_attribute("hotkey") = effectiveKey.c_str();
 				}
 			}
 

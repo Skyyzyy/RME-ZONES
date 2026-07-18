@@ -23,6 +23,7 @@
 
 #include "gui.h"
 #include "main_menubar.h"
+#include "theme.h"
 
 #include "editor.h"
 #include "brush.h"
@@ -1834,8 +1835,15 @@ void GUI::ListDialog(wxWindow* parent, const wxString& title, const wxArrayStrin
 
 void GUI::ShowTextBox(wxWindow* parent, const wxString& title, const wxString& content) {
 	auto* dlg = newd wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxRESIZE_BORDER | wxCAPTION | wxCLOSE_BOX);
+	dlg->SetBackgroundColour(Theme::Get(Theme::Role::Surface));
 	wxSizer* topsizer = newd wxBoxSizer(wxVERTICAL);
-	auto* text_field = newd wxTextCtrl(dlg, wxID_ANY, content, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY);
+	auto* text_field = newd wxTextCtrl(dlg, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
+	text_field->SetBackgroundColour(Theme::Get(Theme::Role::Background));
+	text_field->SetForegroundColour(Theme::Get(Theme::Role::Text));
+	text_field->SetFont(wxFontInfo(9).Family(wxFONTFAMILY_TELETYPE));
+	text_field->ChangeValue(content.empty() ? wxString("No text content was provided.") : content);
+	text_field->SetInsertionPoint(0);
+	text_field->ShowPosition(0);
 	text_field->SetMinSize(wxSize(400, 550));
 	topsizer->Add(text_field, wxSizerFlags(5).Expand());
 
