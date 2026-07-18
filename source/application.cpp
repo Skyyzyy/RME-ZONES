@@ -426,13 +426,7 @@ void MainFrame::OnUpdateMenus(wxCommandEvent&) {
 #ifdef __WINDOWS__
 bool MainFrame::MSWTranslateMessage(WXMSG* msg) {
 	if (g_gui.AreHotkeysEnabled()) {
-		if (wxFrame::MSWTranslateMessage(msg)) {
-			return true;
-		}
-	} else {
-		if (wxWindow::MSWTranslateMessage(msg)) {
-			return true;
-		}
+		return wxFrame::MSWTranslateMessage(msg);
 	}
 	return false;
 }
