@@ -21,16 +21,6 @@ public:
 		std::unordered_map<MenuBar::ActionID, HotkeyManager::ActionInfo>& actionInfo);
 
 private:
-	void BuildDisplayItems();
-	void BuildMenuHelpEntries();
-	void PopulateList();
-	void OnKeyDown(wxKeyEvent& event);
-	void OnSetButton(wxCommandEvent& event);
-	void OnHotkeySearch(wxCommandEvent& event);
-	void OnHelpSearch(wxCommandEvent& event);
-
-	static bool ContainsIgnoreCase(const wxString& source, const wxString& search);
-
 	struct DisplayItem {
 		wxString category;
 		MenuBar::ActionID action;
@@ -47,6 +37,31 @@ private:
 		wxString shortcut;
 	};
 
+	void BuildDisplayData();
+	void PopulateList();
+	void OnKeyDown(wxKeyEvent& event);
+	void OnSetButton(wxCommandEvent& event);
+	void OnHotkeySearch(wxCommandEvent& event);
+	void OnHelpSearch(wxCommandEvent& event);
+
+	static bool ContainsIgnoreCase(const wxString& source, const wxString& search);
+
+	// Key handling helpers
+	bool IsModifierKey(int keyCode) const;
+	wxString GetModifierString(int keyCode) const;
+	wxString FormatKeyCode(int keyCode) const;
+	void HandleModifierKey(int keyCode);
+	void HandleRegularKey(int keyCode);
+
+	// Button action helpers
+	bool GetSelectedAction(long& selectedIndex, MenuBar::ActionID& actionId);
+	bool CheckHotkeyConflict(const wxString& hotkey, MenuBar::ActionID currentAction);
+	void ApplyHotkeyChange(MenuBar::ActionID actionId, const wxString& hotkey, long selectedIndex);
+
+	// Search helpers
+	bool MatchesHotkeySearch(const DisplayItem& item, const wxString& search) const;
+	std::set<wxString> BuildHelpSearchMatches(const wxString& search) const;
+
 	MainMenuBar* menubar_;
 	std::unordered_map<MenuBar::ActionID, HotkeyEntry>& entries_;
 	std::unordered_map<MenuBar::ActionID, HotkeyManager::ActionInfo>& actionInfo_;
@@ -56,7 +71,6 @@ private:
 	wxTextCtrl* hotkeyEdit_ = nullptr;
 	wxTextCtrl* hotkeySearch_ = nullptr;
 	wxTextCtrl* helpSearch_ = nullptr;
-	std::set<int> currentModifiers_;
 };
 
 #endif
