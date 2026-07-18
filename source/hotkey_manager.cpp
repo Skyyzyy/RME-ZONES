@@ -11,6 +11,48 @@ HotkeyManager g_hotkey_manager;
 HotkeyManager::HotkeyManager() = default;
 HotkeyManager::~HotkeyManager() = default;
 
+HotkeyManager::XmlMenuData HotkeyManager::ParseMenubarXml() {
+	XmlMenuData data;
+	
+	wxString path = g_gui.GetDataDirectory() + "menubar.xml";
+	pugi::xml_document doc;
+	if (!doc.load_file(path.mb_str())) {
+		return data;
+	}
+
+	pugi::xml_node menubarNode = doc.child("menubar");
+	if (!menubarNode) {
+		return data;
+	}
+
+	std::function<void(pugi::xml_node, wxString)> collectData = [&](pugi::xml_node node, wxString currentMenu) {
+		for (pugi::xml_node item = node.child("item"); item; item = item.next_sibling("item")) {
+			std::string actionStr = item.attribute("action").as_string();
+			if (!actionStr.empty()) {
+				// Collect node
+				data.nodes[actionStr] = item;
+				
+				// Collect action data
+				std::string hotkey = item.attribute("hotkey").as_string();
+				std::string help = item.attribute("help").as_string();
+				std::string name = item.attribute("name").as_string();
+				data.actions[actionStr] = {wxString(hotkey), wxString(help), wxString(name)};
+				
+				// Collect category
+				data.categories[actionStr] = currentMenu;
+			}
+		}
+		for (pugi::xml_node menu = node.child("menu"); menu; menu = menu.next_sibling("menu")) {
+			wxString menuName = wxString(menu.attribute("name").as_string());
+			wxString fullPath = currentMenu.empty() ? menuName : currentMenu + " > " + menuName;
+			collectData(menu, fullPath);
+		}
+	};
+	
+	collectData(menubarNode, "");
+	return data;
+}
+
 void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 	if (!menubar) {
 		return;
@@ -19,53 +61,9 @@ void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 	actionInfo_.clear();
 	entries_.clear();
 
-	// Load default hotkeys from menubar.xml
-	wxString path = g_gui.GetDataDirectory() + "menubar.xml";
-	pugi::xml_document doc;
-	if (!doc.load_file(path.mb_str())) {
-		return;
-	}
+	XmlMenuData xmlData = ParseMenubarXml();
 
-	pugi::xml_node menubarNode = doc.child("menubar");
-	if (!menubarNode) {
-		return;
-	}
-
-	// First pass: collect all actions from menubar.xml with default hotkeys and categories
-	struct XmlActionData {
-		wxString hotkey;
-		wxString help;
-		wxString itemName;
-	};
-	std::unordered_map<std::string, XmlActionData> xmlActions;
-	std::unordered_map<std::string, wxString> xmlCategories;
-
-	std::function<void(pugi::xml_node, wxString)> collectActions = [&](pugi::xml_node node, wxString currentMenu) {
-		for (pugi::xml_node item = node.child("item"); item; item = item.next_sibling("item")) {
-			std::string actionStr = item.attribute("action").as_string();
-			if (!actionStr.empty()) {
-				std::string hotkey = item.attribute("hotkey").as_string();
-				std::string help = item.attribute("help").as_string();
-				std::string name = item.attribute("name").as_string();
-				xmlActions[actionStr] = {wxString(hotkey), wxString(help), wxString(name)};
-				xmlCategories[actionStr] = currentMenu;
-			}
-		}
-		for (pugi::xml_node menu = node.child("menu"); menu; menu = menu.next_sibling("menu")) {
-			wxString menuName = wxString(menu.attribute("name").as_string());
-			wxString fullPath = currentMenu.empty() ? menuName : currentMenu + " > " + menuName;
-			collectActions(menu, fullPath);
-			for (pugi::xml_node item = menu.child("item"); item; item = item.next_sibling("item")) {
-				std::string action = item.attribute("action").as_string();
-				if (!action.empty() && xmlCategories.find(action) == xmlCategories.end()) {
-					xmlCategories[action] = currentMenu;
-				}
-			}
-		}
-	};
-	collectActions(menubarNode, "");
-
-	// Second pass: match XML actions with MainMenuBar ActionID enum
+	// Match XML actions with MainMenuBar ActionID enum
 	const auto& actions = menubar->GetActions();
 	for (const auto& [actionName, actionPtr] : actions) {
 		MenuBar::ActionID actionId = static_cast<MenuBar::ActionID>(actionPtr->id);
@@ -74,8 +72,8 @@ void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 		wxString description;
 		wxString itemName;
 
-		auto xmlIt = xmlActions.find(actionName);
-		if (xmlIt != xmlActions.end()) {
+		auto xmlIt = xmlData.actions.find(actionName);
+		if (xmlIt != xmlData.actions.end()) {
 			defaultKey = xmlIt->second.hotkey;
 			description = xmlIt->second.help;
 			itemName = xmlIt->second.itemName;
@@ -85,8 +83,8 @@ void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 		info.name = wxString(actionName);
 		info.itemName = itemName;
 		info.help = description;
-		auto catIt = xmlCategories.find(actionName);
-		if (catIt != xmlCategories.end()) {
+		auto catIt = xmlData.categories.find(actionName);
+		if (catIt != xmlData.categories.end()) {
 			info.category = catIt->second;
 		}
 		actionInfo_[actionId] = info;
@@ -136,31 +134,13 @@ wxString HotkeyManager::GetEffectiveKey(MenuBar::ActionID actionId) const {
 }
 
 void HotkeyManager::SyncToXml() {
+	XmlMenuData xmlData = ParseMenubarXml();
+	
 	wxString path = g_gui.GetDataDirectory() + "menubar.xml";
 	pugi::xml_document doc;
 	if (!doc.load_file(path.mb_str())) {
 		return;
 	}
-
-	pugi::xml_node menubarNode = doc.child("menubar");
-	if (!menubarNode) {
-		return;
-	}
-
-	// Build a map from action name to XML node
-	std::unordered_map<std::string, pugi::xml_node> xmlNodes;
-	std::function<void(pugi::xml_node)> collectNodes = [&](pugi::xml_node node) {
-		for (pugi::xml_node item = node.child("item"); item; item = item.next_sibling("item")) {
-			std::string action = item.attribute("action").as_string();
-			if (!action.empty()) {
-				xmlNodes[action] = item;
-			}
-		}
-		for (pugi::xml_node menu = node.child("menu"); menu; menu = menu.next_sibling("menu")) {
-			collectNodes(menu);
-		}
-	};
-	collectNodes(menubarNode);
 
 	// Update hotkey attributes for actions with overrides
 	for (const auto& [actionId, entry] : entries_) {
@@ -174,8 +154,8 @@ void HotkeyManager::SyncToXml() {
 		}
 
 		std::string actionName = infoIt->second.name.ToStdString();
-		auto nodeIt = xmlNodes.find(actionName);
-		if (nodeIt != xmlNodes.end()) {
+		auto nodeIt = xmlData.nodes.find(actionName);
+		if (nodeIt != xmlData.nodes.end()) {
 			std::string effectiveKey = entry.EffectiveKey().ToStdString();
 			pugi::xml_attribute attr = nodeIt->second.attribute("hotkey");
 			if (attr) {
@@ -187,8 +167,8 @@ void HotkeyManager::SyncToXml() {
 	// Update help text for all actions
 	for (const auto& [actionId, info] : actionInfo_) {
 		std::string actionName = info.name.ToStdString();
-		auto nodeIt = xmlNodes.find(actionName);
-		if (nodeIt != xmlNodes.end()) {
+		auto nodeIt = xmlData.nodes.find(actionName);
+		if (nodeIt != xmlData.nodes.end()) {
 			std::string help = info.help.ToStdString();
 			pugi::xml_attribute attr = nodeIt->second.attribute("help");
 			if (attr) {
