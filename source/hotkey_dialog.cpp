@@ -6,6 +6,8 @@
 #include <wx/button.h>
 #include <wx/sizer.h>
 #include <wx/msgdlg.h>
+#include <wx/statline.h>
+#include <wx/textdlg.h>
 
 #include <algorithm>
 
@@ -55,24 +57,23 @@ static bool ValidateHotkeyString(const wxString& hotkey, wxString& error) {
 	return true;
 }
 
+bool HotkeyDialog::ContainsIgnoreCase(const wxString& source, const wxString& search) {
+	if (search.empty()) return true;
+	return source.Lower().Find(search.Lower()) != wxNOT_FOUND;
+}
+
 HotkeyDialog::HotkeyDialog(wxWindow* parent, MainMenuBar* menubar,
 	std::unordered_map<MenuBar::ActionID, HotkeyEntry>& entries,
-	const std::unordered_map<MenuBar::ActionID, HotkeyManager::ActionInfo>& actionInfo)
-	: wxDialog(parent, wxID_ANY, "Hotkey Configuration", wxDefaultPosition, wxSize(700, 500))
+	std::unordered_map<MenuBar::ActionID, HotkeyManager::ActionInfo>& actionInfo)
+	: wxDialog(parent, wxID_ANY, "Hotkey Configuration", wxDefaultPosition, wxSize(850, 550))
 	, menubar_(menubar)
 	, entries_(entries)
 	, actionInfo_(actionInfo)
 {
-	wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
-
-	hotkeyList_ = new wxListCtrl(this, wxID_ANY, wxDefaultPosition,
-		wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
-	hotkeyList_->InsertColumn(0, "Menu", wxLIST_FORMAT_LEFT, 180);
-	hotkeyList_->InsertColumn(1, "Action", wxLIST_FORMAT_LEFT, 220);
-	hotkeyList_->InsertColumn(2, "Hotkey", wxLIST_FORMAT_LEFT, 150);
-
 	BuildDisplayItems();
-	PopulateList();
+	BuildMenuHelpEntries();
+
+	wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
 
 	// Edit area
 	wxBoxSizer* editSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -96,6 +97,41 @@ HotkeyDialog::HotkeyDialog(wxWindow* parent, MainMenuBar* menubar,
 	editSizer->Add(hotkeyEdit_, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
 	editSizer->Add(setButton, 0);
 
+	mainSizer->Add(editSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 5);
+
+	// Hotkey Search
+	wxBoxSizer* hotkeySearchSizer = new wxBoxSizer(wxHORIZONTAL);
+	wxStaticText* hotkeySearchLabel = new wxStaticText(this, wxID_ANY, "Hotkey Search:");
+	hotkeySearch_ = new wxTextCtrl(this, wxID_ANY, "",
+		wxDefaultPosition, wxSize(200, -1));
+	hotkeySearchSizer->Add(hotkeySearchLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+	hotkeySearchSizer->Add(hotkeySearch_, 1, wxALIGN_CENTER_VERTICAL);
+
+	mainSizer->Add(hotkeySearchSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 5);
+
+	mainSizer->Add(new wxStaticLine(this), 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
+
+	// Help Search
+	wxBoxSizer* helpSearchSizer = new wxBoxSizer(wxHORIZONTAL);
+	wxStaticText* helpSearchLabel = new wxStaticText(this, wxID_ANY, "Help Search:");
+	helpSearch_ = new wxTextCtrl(this, wxID_ANY, "",
+		wxDefaultPosition, wxSize(200, -1));
+	helpSearchSizer->Add(helpSearchLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+	helpSearchSizer->Add(helpSearch_, 1, wxALIGN_CENTER_VERTICAL);
+
+	mainSizer->Add(helpSearchSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 5);
+
+	mainSizer->Add(new wxStaticLine(this), 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
+
+	// Hotkey list
+	hotkeyList_ = new wxListCtrl(this, wxID_ANY, wxDefaultPosition,
+		wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
+	hotkeyList_->InsertColumn(0, "Menu", wxLIST_FORMAT_LEFT, 170);
+	hotkeyList_->InsertColumn(1, "Action", wxLIST_FORMAT_LEFT, 170);
+	hotkeyList_->InsertColumn(2, "Hotkey", wxLIST_FORMAT_LEFT, 110);
+	hotkeyList_->InsertColumn(3, "Help", wxLIST_FORMAT_LEFT, 300);
+	PopulateList();
+
 	// Handle list selection
 	hotkeyList_->Bind(wxEVT_LIST_ITEM_SELECTED, [this](wxListEvent& event) {
 		wxListItem item;
@@ -108,10 +144,27 @@ HotkeyDialog::HotkeyDialog(wxWindow* parent, MainMenuBar* menubar,
 		hotkeyEdit_->SetValue(hk);
 	});
 
+	// Double-click to edit help text
+	hotkeyList_->Bind(wxEVT_LIST_ITEM_ACTIVATED, [this](wxListEvent& event) {
+		long itemIndex = event.GetIndex();
+		MenuBar::ActionID actionId = static_cast<MenuBar::ActionID>(hotkeyList_->GetItemData(itemIndex));
+		auto infoIt = actionInfo_.find(actionId);
+		if (infoIt == actionInfo_.end()) return;
+
+		wxTextEntryDialog dlg(this, "Edit help text:", "Edit Help", infoIt->second.help);
+		if (dlg.ShowModal() == wxID_OK) {
+			wxString newHelp = dlg.GetValue();
+			infoIt->second.help = newHelp;
+			hotkeyList_->SetItem(itemIndex, 3, newHelp);
+		}
+	});
+
 	setButton->Bind(wxEVT_BUTTON, &HotkeyDialog::OnSetButton, this);
 
-	mainSizer->Add(hotkeyList_, 1, wxEXPAND | wxALL, 5);
-	mainSizer->Add(editSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
+	hotkeySearch_->Bind(wxEVT_TEXT, &HotkeyDialog::OnHotkeySearch, this);
+	helpSearch_->Bind(wxEVT_TEXT, &HotkeyDialog::OnHelpSearch, this);
+
+	mainSizer->Add(hotkeyList_, 1, wxEXPAND | wxLEFT | wxRIGHT, 5);
 
 	wxBoxSizer* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 	wxButton* saveButton = new wxButton(this, wxID_OK, "Save");
@@ -137,12 +190,14 @@ void HotkeyDialog::BuildDisplayItems() {
 
 		auto infoIt = actionInfo_.find(actionId);
 		wxString category = infoIt != actionInfo_.end() ? infoIt->second.category : wxString();
+		wxString help = infoIt != actionInfo_.end() ? infoIt->second.help : wxString();
 
 		displayItems_.push_back({
 			category,
 			actionId,
 			wxString(actionName),
-			entryIt->second.EffectiveKey()
+			entryIt->second.EffectiveKey(),
+			help
 		});
 	}
 
@@ -153,19 +208,80 @@ void HotkeyDialog::BuildDisplayItems() {
 		});
 }
 
+void HotkeyDialog::BuildMenuHelpEntries() {
+	menuHelpEntries_.clear();
+	menuHelpEntries_.reserve(actionInfo_.size());
+
+	for (const auto& [actionId, info] : actionInfo_) {
+		auto entryIt = entries_.find(actionId);
+		wxString shortcut = entryIt != entries_.end() ? entryIt->second.EffectiveKey() : wxString();
+
+		menuHelpEntries_.push_back({
+			info.category,
+			info.itemName,
+			info.name,
+			info.help,
+			shortcut
+		});
+	}
+}
+
 void HotkeyDialog::PopulateList() {
 	hotkeyList_->DeleteAllItems();
 
+	wxString hotkeySearch = hotkeySearch_->GetValue().Trim();
+	wxString helpSearch = helpSearch_->GetValue().Trim();
+
+	// Collect actions matching help search
+	std::set<wxString> helpMatches;
+	if (!helpSearch.empty()) {
+		for (const auto& entry : menuHelpEntries_) {
+			if (ContainsIgnoreCase(entry.menu, helpSearch) ||
+				ContainsIgnoreCase(entry.text, helpSearch) ||
+				ContainsIgnoreCase(entry.action, helpSearch) ||
+				ContainsIgnoreCase(entry.help, helpSearch) ||
+				ContainsIgnoreCase(entry.shortcut, helpSearch)) {
+				helpMatches.insert(entry.action);
+			}
+		}
+	}
+
 	for (size_t i = 0; i < displayItems_.size(); ++i) {
-		long idx = hotkeyList_->InsertItem(static_cast<long>(i), displayItems_[i].category);
-		hotkeyList_->SetItem(idx, 1, displayItems_[i].actionName);
-		hotkeyList_->SetItemPtrData(idx, static_cast<long>(displayItems_[i].action));
-		wxString hk = displayItems_[i].hotkey;
+		const auto& item = displayItems_[i];
+
+		if (!hotkeySearch.empty()) {
+			if (!ContainsIgnoreCase(item.category, hotkeySearch) &&
+				!ContainsIgnoreCase(item.actionName, hotkeySearch) &&
+				!ContainsIgnoreCase(item.hotkey, hotkeySearch) &&
+				!ContainsIgnoreCase(item.help, hotkeySearch)) {
+				continue;
+			}
+		}
+
+		if (!helpSearch.empty()) {
+			if (helpMatches.find(item.actionName) == helpMatches.end()) {
+				continue;
+			}
+		}
+
+		long idx = hotkeyList_->InsertItem(hotkeyList_->GetItemCount(), item.category);
+		hotkeyList_->SetItem(idx, 1, item.actionName);
+		hotkeyList_->SetItemPtrData(idx, static_cast<long>(item.action));
+		wxString hk = item.hotkey;
 		if (hk.empty()) {
 			hk = "(none)";
 		}
 		hotkeyList_->SetItem(idx, 2, hk);
+		hotkeyList_->SetItem(idx, 3, item.help);
 	}
+}
+
+void HotkeyDialog::OnHotkeySearch(wxCommandEvent&) {
+	PopulateList();
+}
+
+void HotkeyDialog::OnHelpSearch(wxCommandEvent&) {
+	PopulateList();
 }
 
 void HotkeyDialog::OnKeyDown(wxKeyEvent& event) {

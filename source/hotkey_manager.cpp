@@ -32,7 +32,12 @@ void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 	}
 
 	// First pass: collect all actions from menubar.xml with default hotkeys and categories
-	std::unordered_map<std::string, std::pair<wxString, wxString>> xmlActions;
+	struct XmlActionData {
+		wxString hotkey;
+		wxString help;
+		wxString itemName;
+	};
+	std::unordered_map<std::string, XmlActionData> xmlActions;
 	std::unordered_map<std::string, wxString> xmlCategories;
 
 	std::function<void(pugi::xml_node, wxString)> collectActions = [&](pugi::xml_node node, wxString currentMenu) {
@@ -41,7 +46,8 @@ void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 			if (!actionStr.empty()) {
 				std::string hotkey = item.attribute("hotkey").as_string();
 				std::string help = item.attribute("help").as_string();
-				xmlActions[actionStr] = {wxString(hotkey), wxString(help)};
+				std::string name = item.attribute("name").as_string();
+				xmlActions[actionStr] = {wxString(hotkey), wxString(help), wxString(name)};
 				xmlCategories[actionStr] = currentMenu;
 			}
 		}
@@ -66,15 +72,18 @@ void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 
 		wxString defaultKey;
 		wxString description;
+		wxString itemName;
 
 		auto xmlIt = xmlActions.find(actionName);
 		if (xmlIt != xmlActions.end()) {
-			defaultKey = xmlIt->second.first;
-			description = xmlIt->second.second;
+			defaultKey = xmlIt->second.hotkey;
+			description = xmlIt->second.help;
+			itemName = xmlIt->second.itemName;
 		}
 
 		ActionInfo info;
 		info.name = wxString(actionName);
+		info.itemName = itemName;
 		info.help = description;
 		auto catIt = xmlCategories.find(actionName);
 		if (catIt != xmlCategories.end()) {
@@ -171,6 +180,21 @@ void HotkeyManager::SyncToXml() {
 			pugi::xml_attribute attr = nodeIt->second.attribute("hotkey");
 			if (attr) {
 				attr.set_value(effectiveKey.c_str());
+			}
+		}
+	}
+
+	// Update help text for all actions
+	for (const auto& [actionId, info] : actionInfo_) {
+		std::string actionName = info.name.ToStdString();
+		auto nodeIt = xmlNodes.find(actionName);
+		if (nodeIt != xmlNodes.end()) {
+			std::string help = info.help.ToStdString();
+			pugi::xml_attribute attr = nodeIt->second.attribute("help");
+			if (attr) {
+				attr.set_value(help.c_str());
+			} else {
+				nodeIt->second.append_attribute("help") = help.c_str();
 			}
 		}
 	}

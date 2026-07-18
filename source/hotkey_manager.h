@@ -37,6 +37,7 @@ public:
 
 	struct ActionInfo {
 		wxString name;
+		wxString itemName;
 		wxString help;
 		wxString category;
 	};
