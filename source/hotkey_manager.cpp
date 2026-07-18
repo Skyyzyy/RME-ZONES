@@ -93,22 +93,21 @@ void HotkeyManager::LoadCustom() {
 	config->SetPath("/Hotkeys/");
 
 	long dummy;
-	wxString actionName;
-	bool hasEntry = config->GetFirstEntry(actionName, dummy);
+	wxString entryName;
+	bool hasEntry = config->GetFirstEntry(entryName, dummy);
 	while (hasEntry) {
-		wxString savedKey = config->Read(actionName, "");
-		// Skip the numerical hotkeys entry
-		if (actionName != "NUMERICAL_HOTKEYS") {
-			// Match by name
+		// Skip non-action entries (e.g., DWORD values from other systems)
+		if (entryName != "NUMERICAL_HOTKEYS") {
 			for (auto& pair : entries_) {
 				auto infoIt = actionInfo_.find(pair.first);
-				if (infoIt != actionInfo_.end() && infoIt->second.name == actionName) {
+				if (infoIt != actionInfo_.end() && infoIt->second.name == entryName) {
+					wxString savedKey = config->Read(entryName, "");
 					pair.second.overrideKey = savedKey;
 					break;
 				}
 			}
 		}
-		hasEntry = config->GetNextEntry(actionName, dummy);
+		hasEntry = config->GetNextEntry(entryName, dummy);
 	}
 
 	config->SetPath("/");
