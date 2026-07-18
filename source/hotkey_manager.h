@@ -5,12 +5,11 @@
 #include "main_menubar.h"
 
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <wx/accel.h>
 
-class wxListCtrl;
-class wxTextCtrl;
 class wxWindow;
 
 struct HotkeyEntry {
@@ -36,29 +35,20 @@ public:
 	void LoadCustom();
 	void SaveCustom();
 
-	void SetHotkey(MenuBar::ActionID action, const wxString& key);
-	wxString GetHotkey(MenuBar::ActionID action) const;
-	wxString GetDefaultHotkey(MenuBar::ActionID action) const;
-
 	void RebuildAccelerators(wxWindow* target);
 
-	const std::unordered_map<MenuBar::ActionID, HotkeyEntry>& GetAllEntries() const;
-	HotkeyEntry* FindEntry(MenuBar::ActionID action);
-
 	void ShowHotkeyDialog(wxWindow* parent, MainMenuBar* menubar);
-
-	static wxString KeyCodeToString(int keyCode);
-	static int StringToKeyCode(const wxString& keyString);
-	static bool ValidateHotkeyString(const wxString& hotkey, wxString& error);
 
 private:
 	struct ActionInfo {
 		wxString name;
 		wxString help;
+		wxString category;
 	};
 
 	std::unordered_map<MenuBar::ActionID, HotkeyEntry> entries_;
 	std::unordered_map<MenuBar::ActionID, ActionInfo> actionInfo_;
+	std::unordered_map<wxString, MenuBar::ActionID> nameToActionId_;
 
 	void BuildAcceleratorEntries(std::vector<wxAcceleratorEntry>& accelEntries) const;
 };

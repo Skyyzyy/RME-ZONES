@@ -42,29 +42,38 @@ void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 		return;
 	}
 
-	// First pass: collect all actions from menubar.xml with their default hotkeys
+	// First pass: collect all actions from menubar.xml with default hotkeys and categories
 	std::unordered_map<std::string, std::pair<wxString, wxString>> xmlActions;
+	std::unordered_map<std::string, wxString> xmlCategories;
 
-	std::function<void(pugi::xml_node)> collectActions = [&](pugi::xml_node node) {
+	std::function<void(pugi::xml_node, wxString)> collectActions = [&](pugi::xml_node node, wxString currentMenu) {
 		for (pugi::xml_node item = node.child("item"); item; item = item.next_sibling("item")) {
 			std::string actionStr = item.attribute("action").as_string();
 			if (!actionStr.empty()) {
 				std::string hotkey = item.attribute("hotkey").as_string();
 				std::string help = item.attribute("help").as_string();
 				xmlActions[actionStr] = {wxString(hotkey), wxString(help)};
+				xmlCategories[actionStr] = currentMenu;
 			}
 		}
 		for (pugi::xml_node menu = node.child("menu"); menu; menu = menu.next_sibling("menu")) {
-			collectActions(menu);
+			wxString menuName = wxString(menu.attribute("name").as_string());
+			wxString fullPath = currentMenu.empty() ? menuName : currentMenu + " > " + menuName;
+			collectActions(menu, fullPath);
+			for (pugi::xml_node item = menu.child("item"); item; item = item.next_sibling("item")) {
+				std::string action = item.attribute("action").as_string();
+				if (!action.empty() && xmlCategories.find(action) == xmlCategories.end()) {
+					xmlCategories[action] = currentMenu;
+				}
+			}
 		}
 	};
-	collectActions(menubarNode);
+	collectActions(menubarNode, "");
 
 	// Second pass: match XML actions with MainMenuBar ActionID enum
 	const auto& actions = menubar->GetActions();
-	for (const auto& pair : actions) {
-		MenuBar::ActionID actionId = static_cast<MenuBar::ActionID>(pair.second->id);
-		const std::string& actionName = pair.first;
+	for (const auto& [actionName, actionPtr] : actions) {
+		MenuBar::ActionID actionId = static_cast<MenuBar::ActionID>(actionPtr->id);
 
 		wxString defaultKey;
 		wxString description;
@@ -78,7 +87,13 @@ void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 		ActionInfo info;
 		info.name = wxString(actionName);
 		info.help = description;
+		auto catIt = xmlCategories.find(actionName);
+		if (catIt != xmlCategories.end()) {
+			info.category = catIt->second;
+		}
 		actionInfo_[actionId] = info;
+
+		nameToActionId_[info.name] = actionId;
 
 		HotkeyEntry entry;
 		entry.action = actionId;
@@ -96,15 +111,11 @@ void HotkeyManager::LoadCustom() {
 	wxString entryName;
 	bool hasEntry = config->GetFirstEntry(entryName, dummy);
 	while (hasEntry) {
-		// Skip non-action entries (e.g., DWORD values from other systems)
-		if (entryName != "NUMERICAL_HOTKEYS") {
-			for (auto& pair : entries_) {
-				auto infoIt = actionInfo_.find(pair.first);
-				if (infoIt != actionInfo_.end() && infoIt->second.name == entryName) {
-					wxString savedKey = config->Read(entryName, "");
-					pair.second.overrideKey = savedKey;
-					break;
-				}
+		auto nameIt = nameToActionId_.find(entryName);
+		if (nameIt != nameToActionId_.end()) {
+			auto entryIt = entries_.find(nameIt->second);
+			if (entryIt != entries_.end()) {
+				entryIt->second.overrideKey = config->Read(entryName, "");
 			}
 		}
 		hasEntry = config->GetNextEntry(entryName, dummy);
@@ -117,8 +128,6 @@ void HotkeyManager::SaveCustom() {
 	wxConfigBase* config = &Settings::getConfigObject();
 	config->SetPath("/Hotkeys/");
 
-	// Collect existing entries (like NUMERICAL_HOTKEYS) to preserve them
-	std::map<wxString, wxString> preserved;
 	long dummy;
 	wxString entryName;
 	bool hasEntry = config->GetFirstEntry(entryName, dummy);
@@ -145,47 +154,20 @@ void HotkeyManager::SaveCustom() {
 	config->Flush();
 }
 
-void HotkeyManager::SetHotkey(MenuBar::ActionID action, const wxString& key) {
-	auto it = entries_.find(action);
-	if (it != entries_.end()) {
-		if (key.empty()) {
-			it->second.overrideKey.reset();
-		} else {
-			it->second.overrideKey = key;
-		}
-	}
-}
 
-wxString HotkeyManager::GetHotkey(MenuBar::ActionID action) const {
-	auto it = entries_.find(action);
-	if (it != entries_.end()) {
-		return it->second.EffectiveKey();
-	}
-	return "";
-}
-
-wxString HotkeyManager::GetDefaultHotkey(MenuBar::ActionID action) const {
-	auto it = entries_.find(action);
-	if (it != entries_.end()) {
-		return it->second.defaultKey;
-	}
-	return "";
-}
 
 void HotkeyManager::BuildAcceleratorEntries(std::vector<wxAcceleratorEntry>& accelEntries) const {
-	for (const auto& pair : entries_) {
-		const HotkeyEntry& entry = pair.second;
+	for (const auto& [actionId, entry] : entries_) {
 		wxString keyStr = entry.EffectiveKey();
 		if (keyStr.empty()) {
 			continue;
 		}
 
-		wxAcceleratorEntry* accel = wxAcceleratorEntry::Create(wxString("\t") + keyStr);
-		if (accel) {
-			int eventId = MAIN_FRAME_MENU + static_cast<int>(entry.action);
-			accel->Set(accel->GetFlags(), accel->GetKeyCode(), eventId);
-			accelEntries.push_back(*accel);
-			delete accel;
+		wxAcceleratorEntry accel;
+		if (accel.FromString(wxString("\t") + keyStr)) {
+			int eventId = MAIN_FRAME_MENU + static_cast<int>(actionId);
+			accel.Set(accel.GetFlags(), accel.GetKeyCode(), eventId);
+			accelEntries.push_back(accel);
 		}
 	}
 }
@@ -204,29 +186,7 @@ void HotkeyManager::RebuildAccelerators(wxWindow* target) {
 	}
 }
 
-const std::unordered_map<MenuBar::ActionID, HotkeyEntry>& HotkeyManager::GetAllEntries() const {
-	return entries_;
-}
-
-HotkeyEntry* HotkeyManager::FindEntry(MenuBar::ActionID action) {
-	auto it = entries_.find(action);
-	if (it != entries_.end()) {
-		return &it->second;
-	}
-	return nullptr;
-}
-
-wxString HotkeyManager::KeyCodeToString(int keyCode) {
-	return wxAcceleratorEntry(wxACCEL_NORMAL, keyCode, 0).ToString();
-}
-
-int HotkeyManager::StringToKeyCode(const wxString& keyString) {
-	wxAcceleratorEntry entry;
-	entry.FromString(keyString);
-	return entry.GetKeyCode();
-}
-
-bool HotkeyManager::ValidateHotkeyString(const wxString& hotkey, wxString& error) {
+static bool ValidateHotkeyString(const wxString& hotkey, wxString& error) {
 	if (hotkey.empty()) {
 		return true;
 	}
@@ -284,35 +244,6 @@ void HotkeyManager::ShowHotkeyDialog(wxWindow* parent, MainMenuBar* menubar) {
 	hotkeyList->InsertColumn(1, "Action", wxLIST_FORMAT_LEFT, 220);
 	hotkeyList->InsertColumn(2, "Hotkey", wxLIST_FORMAT_LEFT, 150);
 
-	// Build category map from menubar.xml
-	wxString path = g_gui.GetDataDirectory() + "menubar.xml";
-	pugi::xml_document doc;
-	std::unordered_map<std::string, wxString> actionCategory;
-
-	if (doc.load_file(path.mb_str())) {
-		std::function<void(pugi::xml_node, wxString)> collectCategories = [&](pugi::xml_node node, wxString currentMenu) {
-			for (pugi::xml_node item = node.child("item"); item; item = item.next_sibling("item")) {
-				std::string action = item.attribute("action").as_string();
-				if (!action.empty()) {
-					actionCategory[action] = currentMenu;
-				}
-			}
-			for (pugi::xml_node menu = node.child("menu"); menu; menu = menu.next_sibling("menu")) {
-				wxString menuName = wxString(menu.attribute("name").as_string());
-				wxString fullPath = currentMenu.empty() ? menuName : currentMenu + " > " + menuName;
-				collectCategories(menu, fullPath);
-				// Also register items directly in this submenu with the parent category
-				for (pugi::xml_node item = menu.child("item"); item; item = item.next_sibling("item")) {
-					std::string action = item.attribute("action").as_string();
-					if (!action.empty() && actionCategory.find(action) == actionCategory.end()) {
-						actionCategory[action] = currentMenu;
-					}
-				}
-			}
-		};
-		collectCategories(doc.child("menubar"), "");
-	}
-
 	// Populate the list
 	struct DisplayItem {
 		wxString category;
@@ -320,32 +251,28 @@ void HotkeyManager::ShowHotkeyDialog(wxWindow* parent, MainMenuBar* menubar) {
 		wxString actionName;
 		wxString hotkey;
 	};
-	std::vector<DisplayItem> displayItems;
-
-	// Get the ordered action list from menubar
 	const auto& actions = menubar->GetActions();
-	for (const auto& pair : actions) {
-		MenuBar::ActionID actionId = static_cast<MenuBar::ActionID>(pair.second->id);
+	std::vector<DisplayItem> displayItems;
+	displayItems.reserve(actions.size());
+
+	for (const auto& [actionName, actionPtr] : actions) {
+		MenuBar::ActionID actionId = static_cast<MenuBar::ActionID>(actionPtr->id);
 		auto entryIt = entries_.find(actionId);
 		if (entryIt == entries_.end()) {
 			continue;
 		}
 
-		wxString category;
-		auto catIt = actionCategory.find(pair.first);
-		if (catIt != actionCategory.end()) {
-			category = catIt->second;
-		}
+		auto infoIt = actionInfo_.find(actionId);
+		wxString category = infoIt != actionInfo_.end() ? infoIt->second.category : wxString();
 
 		displayItems.push_back({
 			category,
 			actionId,
-			wxString(pair.first),
+			wxString(actionName),
 			entryIt->second.EffectiveKey()
 		});
 	}
 
-	// Sort by category then action name
 	std::sort(displayItems.begin(), displayItems.end(),
 		[](const DisplayItem& a, const DisplayItem& b) {
 			if (a.category != b.category) return a.category < b.category;
@@ -355,7 +282,7 @@ void HotkeyManager::ShowHotkeyDialog(wxWindow* parent, MainMenuBar* menubar) {
 	for (size_t i = 0; i < displayItems.size(); ++i) {
 		long idx = hotkeyList->InsertItem(static_cast<long>(i), displayItems[i].category);
 		hotkeyList->SetItem(idx, 1, displayItems[i].actionName);
-		hotkeyList->SetItemPtrData(idx, static_cast<long>(static_cast<int>(displayItems[i].action)));
+		hotkeyList->SetItemPtrData(idx, static_cast<long>(displayItems[i].action));
 		wxString hk = displayItems[i].hotkey;
 		if (hk.empty()) {
 			hk = "(none)";
@@ -413,25 +340,25 @@ void HotkeyManager::ShowHotkeyDialog(wxWindow* parent, MainMenuBar* menubar) {
 				keyCode = keyCode - 'a' + 'A';
 			}
 
+			static const std::unordered_map<int, const char*> kSpecialKeys = {
+				{WXK_SPACE, "Space"}, {WXK_TAB, "Tab"}, {WXK_RETURN, "Enter"},
+				{WXK_ESCAPE, "Esc"}, {WXK_LEFT, "Left"}, {WXK_RIGHT, "Right"},
+				{WXK_UP, "Up"}, {WXK_DOWN, "Down"},
+				{WXK_HOME, "Home"}, {WXK_END, "End"},
+				{WXK_PAGEUP, "PgUp"}, {WXK_PAGEDOWN, "PgDn"},
+				{WXK_INSERT, "Insert"}, {WXK_DELETE, "Delete"}
+			};
+
 			wxString finalKey;
 			if (keyCode >= WXK_F1 && keyCode <= WXK_F12) {
 				finalKey = wxString::Format("F%d", keyCode - WXK_F1 + 1);
-			} else if (keyCode == WXK_SPACE) finalKey = "Space";
-			else if (keyCode == WXK_TAB) finalKey = "Tab";
-			else if (keyCode == WXK_RETURN) finalKey = "Enter";
-			else if (keyCode == WXK_ESCAPE) finalKey = "Esc";
-			else if (keyCode == WXK_LEFT) finalKey = "Left";
-			else if (keyCode == WXK_RIGHT) finalKey = "Right";
-			else if (keyCode == WXK_UP) finalKey = "Up";
-			else if (keyCode == WXK_DOWN) finalKey = "Down";
-			else if (keyCode == WXK_HOME) finalKey = "Home";
-			else if (keyCode == WXK_END) finalKey = "End";
-			else if (keyCode == WXK_PAGEUP) finalKey = "PgUp";
-			else if (keyCode == WXK_PAGEDOWN) finalKey = "PgDn";
-			else if (keyCode == WXK_INSERT) finalKey = "Insert";
-			else if (keyCode == WXK_DELETE) finalKey = "Delete";
-			else {
-				finalKey = wxString(static_cast<wxChar>(keyCode));
+			} else {
+				auto keyIt = kSpecialKeys.find(keyCode);
+				if (keyIt != kSpecialKeys.end()) {
+					finalKey = keyIt->second;
+				} else {
+					finalKey = wxString(static_cast<wxChar>(keyCode));
+				}
 			}
 
 			wxString currentValue = hotkeyEdit->GetValue();
