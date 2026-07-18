@@ -1,7 +1,6 @@
 #include "main.h"
 #include "hotkey_manager.h"
 #include "hotkey_dialog.h"
-#include "settings.h"
 #include "gui.h"
 #include "gui_ids.h"
 
@@ -83,8 +82,6 @@ void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 		}
 		actionInfo_[actionId] = info;
 
-		nameToActionId_[info.name] = actionId;
-
 		HotkeyEntry entry;
 		entry.action = actionId;
 		entry.defaultKey = defaultKey;
@@ -92,59 +89,6 @@ void HotkeyManager::DiscoverActions(MainMenuBar* menubar) {
 		entries_[actionId] = entry;
 	}
 }
-
-void HotkeyManager::LoadCustom() {
-	wxConfigBase* config = &Settings::getConfigObject();
-	config->SetPath("/Hotkeys/");
-
-	long dummy;
-	wxString entryName;
-	bool hasEntry = config->GetFirstEntry(entryName, dummy);
-	while (hasEntry) {
-		auto nameIt = nameToActionId_.find(entryName);
-		if (nameIt != nameToActionId_.end()) {
-			auto entryIt = entries_.find(nameIt->second);
-			if (entryIt != entries_.end()) {
-				entryIt->second.overrideKey = config->Read(entryName, "");
-			}
-		}
-		hasEntry = config->GetNextEntry(entryName, dummy);
-	}
-
-	config->SetPath("/");
-}
-
-void HotkeyManager::SaveCustom() {
-	wxConfigBase* config = &Settings::getConfigObject();
-	config->SetPath("/Hotkeys/");
-
-	long dummy;
-	wxString entryName;
-	bool hasEntry = config->GetFirstEntry(entryName, dummy);
-	while (hasEntry) {
-		if (entryName != "NUMERICAL_HOTKEYS") {
-			// Delete old hotkey entries we manage
-			config->DeleteEntry(entryName, false);
-		}
-		hasEntry = config->GetNextEntry(entryName, dummy);
-	}
-
-	// Write our managed hotkeys
-	for (const auto& pair : entries_) {
-		const HotkeyEntry& entry = pair.second;
-		auto infoIt = actionInfo_.find(pair.first);
-		if (infoIt != actionInfo_.end()) {
-			if (entry.overrideKey.has_value()) {
-				config->Write(infoIt->second.name, *entry.overrideKey);
-			}
-		}
-	}
-
-	config->SetPath("/");
-	config->Flush();
-}
-
-
 
 void HotkeyManager::BuildAcceleratorEntries(std::vector<wxAcceleratorEntry>& accelEntries) const {
 	for (const auto& [actionId, entry] : entries_) {
@@ -176,11 +120,72 @@ void HotkeyManager::RebuildAccelerators(wxWindow* target) {
 	}
 }
 
+wxString HotkeyManager::GetEffectiveKey(MenuBar::ActionID actionId) const {
+	auto it = entries_.find(actionId);
+	if (it != entries_.end()) {
+		return it->second.EffectiveKey();
+	}
+	return "";
+}
+
+void HotkeyManager::SyncToXml() {
+	wxString path = g_gui.GetDataDirectory() + "menubar.xml";
+	pugi::xml_document doc;
+	if (!doc.load_file(path.mb_str())) {
+		return;
+	}
+
+	pugi::xml_node menubarNode = doc.child("menubar");
+	if (!menubarNode) {
+		return;
+	}
+
+	// Build a map from action name to XML node
+	std::unordered_map<std::string, pugi::xml_node> xmlNodes;
+	std::function<void(pugi::xml_node)> collectNodes = [&](pugi::xml_node node) {
+		for (pugi::xml_node item = node.child("item"); item; item = item.next_sibling("item")) {
+			std::string action = item.attribute("action").as_string();
+			if (!action.empty()) {
+				xmlNodes[action] = item;
+			}
+		}
+		for (pugi::xml_node menu = node.child("menu"); menu; menu = menu.next_sibling("menu")) {
+			collectNodes(menu);
+		}
+	};
+	collectNodes(menubarNode);
+
+	// Update hotkey attributes for actions with overrides
+	for (const auto& [actionId, entry] : entries_) {
+		if (!entry.overrideKey.has_value()) {
+			continue;
+		}
+
+		auto infoIt = actionInfo_.find(actionId);
+		if (infoIt == actionInfo_.end()) {
+			continue;
+		}
+
+		std::string actionName = infoIt->second.name.ToStdString();
+		auto nodeIt = xmlNodes.find(actionName);
+		if (nodeIt != xmlNodes.end()) {
+			std::string effectiveKey = entry.EffectiveKey().ToStdString();
+			pugi::xml_attribute attr = nodeIt->second.attribute("hotkey");
+			if (attr) {
+				attr.set_value(effectiveKey.c_str());
+			}
+		}
+	}
+
+	doc.save_file(path.mb_str());
+}
+
 void HotkeyManager::ShowHotkeyDialog(wxWindow* parent, MainMenuBar* menubar) {
 	HotkeyDialog dlg(parent, menubar, entries_, actionInfo_);
 	if (dlg.ShowModal() == wxID_OK) {
-		SaveCustom();
+		SyncToXml();
 		RebuildAccelerators(g_gui.root);
+		menubar->UpdateLabelHotkeys();
 		if (g_gui.root) {
 			g_gui.root->UpdateMenubar();
 		}

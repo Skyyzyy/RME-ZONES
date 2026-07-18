@@ -524,6 +524,20 @@ void MainMenuBar::UpdateFloorMenu() {
 	}
 }
 
+void MainMenuBar::UpdateLabelHotkeys() {
+	for (const auto& [actionId, itemList] : items) {
+		wxString key = g_hotkey_manager.GetEffectiveKey(actionId);
+		for (wxMenuItem* item : itemList) {
+			wxString baseName = item->GetItemLabelText();
+			wxString newLabel = baseName;
+			if (!key.empty()) {
+				newLabel += "\t" + key;
+			}
+			item->SetItemLabel(newLabel);
+		}
+	}
+}
+
 bool MainMenuBar::Load(const FileName& path, wxArrayString& warnings, wxString& error) {
 	// Open the XML file
 	pugi::xml_document doc;

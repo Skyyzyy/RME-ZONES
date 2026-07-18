@@ -32,12 +32,10 @@ public:
 	~HotkeyManager();
 
 	void DiscoverActions(MainMenuBar* menubar);
-	void LoadCustom();
-	void SaveCustom();
-
 	void RebuildAccelerators(wxWindow* target);
 
 	void ShowHotkeyDialog(wxWindow* parent, MainMenuBar* menubar);
+	wxString GetEffectiveKey(MenuBar::ActionID actionId) const;
 
 	struct ActionInfo {
 		wxString name;
@@ -48,9 +46,8 @@ public:
 private:
 	std::unordered_map<MenuBar::ActionID, HotkeyEntry> entries_;
 	std::unordered_map<MenuBar::ActionID, ActionInfo> actionInfo_;
-	std::unordered_map<wxString, MenuBar::ActionID> nameToActionId_;
-
 	void BuildAcceleratorEntries(std::vector<wxAcceleratorEntry>& accelEntries) const;
+	void SyncToXml();
 };
 
 extern HotkeyManager g_hotkey_manager;
