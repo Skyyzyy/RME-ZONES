@@ -39,13 +39,13 @@ public:
 
 	void ShowHotkeyDialog(wxWindow* parent, MainMenuBar* menubar);
 
-private:
 	struct ActionInfo {
 		wxString name;
 		wxString help;
 		wxString category;
 	};
 
+private:
 	std::unordered_map<MenuBar::ActionID, HotkeyEntry> entries_;
 	std::unordered_map<MenuBar::ActionID, ActionInfo> actionInfo_;
 	std::unordered_map<wxString, MenuBar::ActionID> nameToActionId_;

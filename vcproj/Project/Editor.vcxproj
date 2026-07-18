@@ -321,6 +321,8 @@
     <ClInclude Include="..\..\source\gui.h" />
     <ClCompile Include="..\..\source\gui.cpp" />
     <ClInclude Include="..\..\source\gui_ids.h" />
+    <ClInclude Include="..\..\source\hotkey_dialog.h" />
+    <ClCompile Include="..\..\source\hotkey_dialog.cpp" />
     <ClInclude Include="..\..\source\hotkey_manager.h" />
     <ClCompile Include="..\..\source\hotkey_manager.cpp" />
     <ClInclude Include="..\..\source\main_menubar.h" />
