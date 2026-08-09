@@ -1,6 +1,8 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.10)
 
 project(rme)
+
+option(ENABLE_UNITY_BUILD "Enable unity build for faster compilation" ON)
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE RelWithDebInfo)
@@ -39,3 +41,14 @@ target_link_libraries(${PROJECT_NAME}
 	fmt::fmt
 	nlohmann_json::nlohmann_json
 )
+
+if(ENABLE_UNITY_BUILD)
+	if(CMAKE_VERSION VERSION_LESS 3.16)
+		message(WARNING "ENABLE_UNITY_BUILD requires CMake 3.16 or newer; continuing without unity build")
+	else()
+		set_target_properties(${PROJECT_NAME} PROPERTIES
+			UNITY_BUILD ON
+			UNITY_BUILD_BATCH_SIZE 8
+		)
+	endif()
+endif()

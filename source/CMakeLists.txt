@@ -21,6 +21,7 @@ ${CMAKE_CURRENT_LIST_DIR}/creature_brush.h
 ${CMAKE_CURRENT_LIST_DIR}/creatures.h
 ${CMAKE_CURRENT_LIST_DIR}/dat_debug_view.h
 ${CMAKE_CURRENT_LIST_DIR}/dcbutton.h
+${CMAKE_CURRENT_LIST_DIR}/depot_conversion_validation.h
 ${CMAKE_CURRENT_LIST_DIR}/definitions.h
 ${CMAKE_CURRENT_LIST_DIR}/doodad_brush.h
 ${CMAKE_CURRENT_LIST_DIR}/editor.h
@@ -44,6 +45,7 @@ ${CMAKE_CURRENT_LIST_DIR}/iomap_otbm.h
 ${CMAKE_CURRENT_LIST_DIR}/iominimap.h
 ${CMAKE_CURRENT_LIST_DIR}/item.h
 ${CMAKE_CURRENT_LIST_DIR}/item_attributes.h
+${CMAKE_CURRENT_LIST_DIR}/item_id_mapping.h
 ${CMAKE_CURRENT_LIST_DIR}/items.h
 ${CMAKE_CURRENT_LIST_DIR}/light_drawer.h
 ${CMAKE_CURRENT_LIST_DIR}/main.h
@@ -53,6 +55,8 @@ ${CMAKE_CURRENT_LIST_DIR}/map.h
 ${CMAKE_CURRENT_LIST_DIR}/map_allocator.h
 ${CMAKE_CURRENT_LIST_DIR}/map_display.h
 ${CMAKE_CURRENT_LIST_DIR}/map_drawer.h
+${CMAKE_CURRENT_LIST_DIR}/map_item_id_converter.h
+${CMAKE_CURRENT_LIST_DIR}/map_item_id_converter_window.h
 ${CMAKE_CURRENT_LIST_DIR}/map_region.h
 ${CMAKE_CURRENT_LIST_DIR}/map_tab.h
 ${CMAKE_CURRENT_LIST_DIR}/map_window.h
@@ -128,6 +132,7 @@ ${CMAKE_CURRENT_LIST_DIR}/creature.cpp
 ${CMAKE_CURRENT_LIST_DIR}/creatures.cpp
 ${CMAKE_CURRENT_LIST_DIR}/dat_debug_view.cpp
 ${CMAKE_CURRENT_LIST_DIR}/dcbutton.cpp
+${CMAKE_CURRENT_LIST_DIR}/depot_conversion_validation.cpp
 ${CMAKE_CURRENT_LIST_DIR}/doodad_brush.cpp
 ${CMAKE_CURRENT_LIST_DIR}/editor.cpp
 ${CMAKE_CURRENT_LIST_DIR}/editor_tabs.cpp
@@ -150,6 +155,7 @@ ${CMAKE_CURRENT_LIST_DIR}/iomap_otbm.cpp
 ${CMAKE_CURRENT_LIST_DIR}/iominimap.cpp
 ${CMAKE_CURRENT_LIST_DIR}/item_attributes.cpp
 ${CMAKE_CURRENT_LIST_DIR}/item.cpp
+${CMAKE_CURRENT_LIST_DIR}/item_id_mapping.cpp
 ${CMAKE_CURRENT_LIST_DIR}/items.cpp
 ${CMAKE_CURRENT_LIST_DIR}/light_drawer.cpp
 ${CMAKE_CURRENT_LIST_DIR}/main_menubar.cpp
@@ -157,6 +163,8 @@ ${CMAKE_CURRENT_LIST_DIR}/main_toolbar.cpp
 ${CMAKE_CURRENT_LIST_DIR}/map.cpp
 ${CMAKE_CURRENT_LIST_DIR}/map_display.cpp
 ${CMAKE_CURRENT_LIST_DIR}/map_drawer.cpp
+${CMAKE_CURRENT_LIST_DIR}/map_item_id_converter.cpp
+${CMAKE_CURRENT_LIST_DIR}/map_item_id_converter_window.cpp
 ${CMAKE_CURRENT_LIST_DIR}/map_region.cpp
 ${CMAKE_CURRENT_LIST_DIR}/map_tab.cpp
 ${CMAKE_CURRENT_LIST_DIR}/map_window.cpp
@@ -183,7 +191,7 @@ ${CMAKE_CURRENT_LIST_DIR}/replace_items_window.cpp
 ${CMAKE_CURRENT_LIST_DIR}/result_window.cpp
 ${CMAKE_CURRENT_LIST_DIR}/selection.cpp
 ${CMAKE_CURRENT_LIST_DIR}/settings.cpp
-{CMAKE_CURRENT_LIST_DIR}/theme.cpp
+${CMAKE_CURRENT_LIST_DIR}/theme.cpp
 ${CMAKE_CURRENT_LIST_DIR}/spawn_brush.cpp
 ${CMAKE_CURRENT_LIST_DIR}/spawn.cpp
 ${CMAKE_CURRENT_LIST_DIR}/table_brush.cpp

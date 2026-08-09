@@ -130,6 +130,18 @@
     <ClInclude Include="..\..\source\hotkey_manager.h">
       <Filter>gui</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\map_item_id_converter_window.h">
+      <Filter>gui\dialogs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\map_item_id_converter.h">
+      <Filter>editor\io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\depot_conversion_validation.h">
+      <Filter>editor\io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\item_id_mapping.h">
+      <Filter>editor\io</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\source\house.h">
       <Filter>objects</Filter>
     </ClInclude>
@@ -589,6 +601,21 @@
     </ClCompile>
     <ClCompile Include="..\..\source\hotkey_manager.cpp">
       <Filter>gui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\map_item_id_converter_window.cpp">
+      <Filter>gui\dialogs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\map_item_id_converter.cpp">
+      <Filter>editor\io</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\depot_conversion_validation.cpp">
+      <Filter>editor\io</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\item_id_mapping.cpp">
+      <Filter>editor\io</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\source\theme.cpp">
+      <Filter>common</Filter>
     </ClCompile>
     <ClCompile Include="..\..\source\extension_window.cpp">
       <Filter>gui\dialogs</Filter>
