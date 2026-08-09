@@ -23,6 +23,7 @@
 #include "preferences.h"
 #include "main_menubar.h"
 #include "artprovider.h"
+#include "theme.h"
 
 #include "materials.h"
 #include "map.h"
@@ -97,6 +98,35 @@ bool Application::OnInit() {
 #if defined __DEBUG_MODE__ && defined __WINDOWS__
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
+	// Load the persisted theme before creating any windows.
+	g_settings.load();
+	const int rawTheme = g_settings.getInteger(Config::THEME);
+	const int theme = rawTheme >= 0 && rawTheme <= 2 ? rawTheme : 0;
+	Theme::SetType(static_cast<Theme::Type>(theme));
+#if wxCHECK_VERSION(3, 3, 0)
+	switch (theme) {
+		case 1:
+			SetAppearance(wxApp::Appearance::Dark);
+			std::cerr << "[info] Theme: Dark" << std::endl;
+			break;
+		case 2:
+			SetAppearance(wxApp::Appearance::Light);
+			std::cerr << "[info] Theme: Light" << std::endl;
+			break;
+		case 0:
+		default:
+			SetAppearance(wxApp::Appearance::System);
+			std::cerr << "[info] Theme: System Default" << std::endl;
+			break;
+	}
+#ifdef __WXMSW__
+	if (theme == 1) {
+		MSWEnableDarkMode(wxApp::DarkMode_Always);
+	} else if (theme == 0) {
+		MSWEnableDarkMode(wxApp::DarkMode_Auto);
+	}
+#endif
+#endif
 
 	std::cout << "This is free software: you are free to change and redistribute it." << '\n';
 	std::cout << "There is NO WARRANTY, to the extent permitted by law." << '\n';
@@ -113,7 +143,6 @@ bool Application::OnInit() {
 	wxArtProvider::Push(new ArtProvider());
 
 	// Load some internal stuff
-	g_settings.load();
 	FixVersionDiscrapencies();
 	g_gui.LoadHotkeys();
 	ClientVersion::loadVersions();
@@ -300,6 +329,18 @@ int Application::OnExit() {
 	wxDELETE(m_single_instance_checker);
 #endif
 	return 1;
+}
+
+bool Application::RequestApplicationRestart() {
+	if (m_restart_requested || !g_gui.root) {
+		return false;
+	}
+	m_restart_requested = true;
+	if (!g_gui.root->Close()) {
+		m_restart_requested = false;
+		return false;
+	}
+	return true;
 }
 
 void Application::ShutdownServices() {

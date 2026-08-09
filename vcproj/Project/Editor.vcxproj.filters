@@ -225,6 +225,12 @@
     <ClInclude Include="..\..\source\settings.h">
       <Filter>common</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\source\theme.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\source\file_transaction.h">
+      <Filter>common</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\source\spawn.h">
       <Filter>objects</Filter>
     </ClInclude>

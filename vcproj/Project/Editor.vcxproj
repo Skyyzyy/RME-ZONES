@@ -282,6 +282,8 @@
     <ClInclude Include="..\..\source\rme_forward_declarations.h" />
     <ClInclude Include="..\..\source\settings.h" />
     <ClCompile Include="..\..\source\settings.cpp" />
+    <ClInclude Include="..\..\source\theme.h" />
+    <ClCompile Include="..\..\source\theme.cpp" />
     <ClInclude Include="..\..\source\spawn_brush.h" />
     <ClCompile Include="..\..\source\spawn_brush.cpp" />
     <ClInclude Include="..\..\source\table_brush.h" />

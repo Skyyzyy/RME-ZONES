@@ -22,6 +22,7 @@
 #include "gui.h"
 #include "artprovider.h"
 #include "items.h"
+#include "theme.h"
 
 // ============================================================================
 // ReplaceItemsButton
@@ -57,6 +58,9 @@ ReplaceItemsListBox::ReplaceItemsListBox(wxWindow* parent) :
 	wxVListBox(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLB_SINGLE),
 	m_arrow_bitmap(wxArtProvider::GetBitmap(ART_POSITION_GO, wxART_TOOLBAR, wxSize(16, 16))),
 	m_flag_bitmap(wxArtProvider::GetBitmap(ART_PZ_BRUSH, wxART_TOOLBAR, wxSize(16, 16))) {
+	SetBackgroundColour(Theme::Get(Theme::Role::Background));
+	SetForegroundColour(Theme::Get(Theme::Role::Text));
+	SetSelectionBackground(Theme::Get(Theme::Role::SelectionFill));
 }
 
 bool ReplaceItemsListBox::AddItem(const ReplacingItem& item) {
@@ -123,6 +127,7 @@ void ReplaceItemsListBox::OnDrawItem(wxDC& dc, const wxRect& rect, size_t index)
 		sprite1->DrawTo(&dc, SPRITE_SIZE_32x32, x + 4, y + 4, rect.GetWidth(), rect.GetHeight());
 		dc.DrawBitmap(m_arrow_bitmap, x + 38, y + 10, true);
 		sprite2->DrawTo(&dc, SPRITE_SIZE_32x32, x + 56, y + 4, rect.GetWidth(), rect.GetHeight());
+		dc.SetTextForeground(IsSelected(index) ? Theme::Get(Theme::Role::TextOnAccent) : Theme::Get(Theme::Role::Text));
 		dc.DrawText(wxString::Format("Replace: %d With: %d", item.replaceId, item.withId), x + 104, y + 10);
 
 		if (item.complete) {
@@ -130,16 +135,6 @@ void ReplaceItemsListBox::OnDrawItem(wxDC& dc, const wxRect& rect, size_t index)
 			dc.DrawBitmap(m_flag_bitmap, x + 70, y + 10, true);
 			dc.DrawText(wxString::Format("Total: %u", item.total), x, y + 10);
 		}
-	}
-
-	if (IsSelected(index)) {
-		if (HasFocus()) {
-			dc.SetTextForeground(wxColor(0xFF, 0xFF, 0xFF));
-		} else {
-			dc.SetTextForeground(wxColor(0x00, 0x00, 0xFF));
-		}
-	} else {
-		dc.SetTextForeground(wxColor(0x00, 0x00, 0x00));
 	}
 }
 

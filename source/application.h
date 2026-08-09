@@ -44,9 +44,11 @@ public:
 	int OnExit() override;
 	void Unload();
 	void ShutdownServices();
+	bool RequestApplicationRestart();
 
 private:
 	bool m_startup = false;
+	bool m_restart_requested = false;
 	wxString m_file_to_open;
 	void FixVersionDiscrapencies();
 	bool ParseCommandLineMap(wxString& fileName);
@@ -58,6 +60,8 @@ private:
 	wxSingleInstanceChecker* m_single_instance_checker;
 #endif
 };
+
+wxDECLARE_APP(Application);
 
 class MainMenuBar;
 
