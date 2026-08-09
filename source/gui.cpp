@@ -30,6 +30,7 @@
 #include "materials.h"
 #include "doodad_brush.h"
 #include "spawn_brush.h"
+#include "map_item_id_converter_window.h"
 
 #include "common_windows.h"
 #include "result_window.h"
@@ -241,7 +242,7 @@ void GUI::discoverDataDirectory(const wxString& existentFile) {
 
 bool GUI::LoadVersion(ClientVersionID version, wxString& error, wxArrayString& warnings, bool force) {
 	if (ClientVersion::get(version) == nullptr) {
-		error = "Unsupported client version! (8)";
+		error = wxString::Format("Unsupported client version! (%d)", version);
 		return false;
 	}
 
@@ -562,26 +563,37 @@ void GUI::SaveMapAs() {
 }
 
 bool GUI::LoadMap(const FileName& fileName) {
+	return LoadMapInternal(fileName, EditorClientVersionPolicy::DetectFromMap);
+}
+
+bool GUI::LoadValidatedConvertedMap(const FileName& fileName, const ItemIdCodec* readCodec, bool detachedDecodedView) {
+	return LoadMapInternal(fileName, EditorClientVersionPolicy::KeepLoaded, readCodec, detachedDecodedView);
+}
+
+bool GUI::LoadMapInternal(const FileName& fileName, EditorClientVersionPolicy clientVersionPolicy, const ItemIdCodec* readCodec, bool detachedDecodedView) {
 	rme::bindPooledObjectOwnerThread();
 
 	FinishWelcomeDialog();
 
-	if (GetCurrentEditor() && !GetCurrentMap().hasChanged() && !GetCurrentMap().hasFile()) {
-		g_gui.CloseCurrentEditor();
-	}
+	const bool replaceEmptyEditor = GetCurrentEditor() && !GetCurrentMap().hasChanged() && !GetCurrentMap().hasFile();
 
 	Editor* editor;
 	try {
-		editor = newd Editor(copybuffer, fileName);
+		editor = newd Editor(copybuffer, fileName, clientVersionPolicy, readCodec, detachedDecodedView);
 	} catch (std::runtime_error& e) {
 		PopupDialog(root, "Error!", wxString(e.what(), wxConvUTF8), wxOK);
 		return false;
+	}
+	if (replaceEmptyEditor && GetCurrentEditor()) {
+		g_gui.CloseCurrentEditor();
 	}
 
 	auto* mapTab = newd MapTab(tabbook, editor);
 	mapTab->OnSwitchEditorMode(mode);
 
-	root->AddRecentFile(fileName);
+	if (!detachedDecodedView) {
+		root->AddRecentFile(fileName);
+	}
 
 	mapTab->GetView()->FitToMap();
 	UpdateTitle();
@@ -591,7 +603,7 @@ bool GUI::LoadMap(const FileName& fileName) {
 	FitViewToMap(mapTab);
 	root->UpdateMenubar();
 
-	std::string path = g_settings.getString(Config::RECENT_EDITED_MAP_PATH);
+	std::string path = detachedDecodedView ? std::string() : g_settings.getString(Config::RECENT_EDITED_MAP_PATH);
 	if (!path.empty()) {
 		FileName file(path);
 		if (file == fileName) {
@@ -1052,17 +1064,16 @@ bool GUI::SetLoadDone(int32_t done, const wxString& newMessage) {
 	int32_t newProgress = progressFrom + static_cast<int32_t>((done / 100.f) * (progressTo - progressFrom));
 	newProgress = std::max<int32_t>(0, std::min<int32_t>(100, newProgress));
 
-	bool skip = false;
+	bool shouldContinue = true;
 	if (progressBar) {
-		progressBar->Update(
+		shouldContinue = progressBar->Update(
 			newProgress,
-			wxString::Format("%s (%d%%)", progressText, newProgress),
-			&skip
+			wxString::Format("%s (%d%%)", progressText, newProgress)
 		);
 		currentProgress = newProgress;
 	}
 
-	return skip;
+	return shouldContinue;
 }
 
 void GUI::DestroyLoadBar() {
@@ -1113,6 +1124,8 @@ void GUI::OnWelcomeDialogAction(wxCommandEvent& event) {
 		NewMap();
 	} else if (event.GetId() == wxID_OPEN) {
 		LoadMap(FileName(event.GetString()));
+	} else if (event.GetId() == WELCOME_DIALOG_MAP_CONVERTER) {
+		static_cast<void>(RunMapItemIdConverter(welcomeDialog, MapItemIdConverterLaunchContext::Welcome));
 	}
 }
 

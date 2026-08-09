@@ -235,6 +235,22 @@
     <ClInclude Include="..\..\source\browse_tile_window.h" />
     <ClCompile Include="..\..\source\browse_tile_window.cpp" />
     <ClInclude Include="..\..\source\positionctrl.h" />
+
+    <ClInclude Include="..\..\source\map_item_id_converter_window.h" />
+    <ClCompile Include="..\..\source\map_item_id_converter_window.cpp" />
+    <ClInclude Include="..\..\source\map_item_id_converter.h" />
+    <ClCompile Include="..\..\source\map_item_id_converter.cpp" />
+    <ClInclude Include="..\..\source\depot_conversion_validation.h" />
+    <ClCompile Include="..\..\source\depot_conversion_validation.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClInclude Include="..\..\source\item_id_mapping.h" />
+    <ClCompile Include="..\..\source\item_id_mapping.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+
     <ClCompile Include="..\..\source\main_toolbar.cpp" />
     <ClCompile Include="..\..\source\positionctrl.cpp" />
     <ClInclude Include="..\..\source\carpet_brush.h" />
@@ -388,6 +404,7 @@
     <ClInclude Include="..\..\source\position.h" />
     <ClInclude Include="..\..\source\spawn.h" />
     <ClCompile Include="..\..\source\spawn.cpp" />
+
     <ClCompile Include="..\..\source\templatemap76-74.cpp" />
     <ClCompile Include="..\..\source\templatemap81.cpp" />
     <ClCompile Include="..\..\source\templatemap854.cpp" />

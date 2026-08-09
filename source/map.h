@@ -46,6 +46,8 @@ inline bool IsRemovableDuplicatedItem(const Item* item) {
 	return true;
 }
 
+class ItemIdCodec;
+
 class Map : public BaseMap {
 public:
 	// ctor and dtor
@@ -130,6 +132,9 @@ public:
 	const std::string& getSpawnFilename() const {
 		return spawnfile;
 	}
+	const std::string& getSpawnNpcFilename() const {
+		return spawnNpcFile;
+	}
 	const std::string& getZoneFilename() const {
 		return zonefile;
 	}
@@ -151,7 +156,7 @@ public:
 
 protected:
 	// Loads a map
-	bool open(const std::string& identifier);
+	bool open(const std::string& identifier, const ItemIdCodec* itemIdCodec = nullptr);
 
 protected:
 	void updateUniqueIds(Tile* old_tile, Tile* new_tile) override;
@@ -173,6 +178,7 @@ protected:
 	uint16_t width, height;
 
 	std::string spawnfile; // The maps spawnfile
+	std::string spawnNpcFile; // Canary/Crystal NPC spawnfile
 	std::string housefile; // The housefile
 	std::string waypointfile; // The waypoints file (stores extended waypoint information such as id, preferred icon and matching town)
 	std::string zonefile; // The zonefile

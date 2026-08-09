@@ -162,10 +162,24 @@ public:
 		read_offset += sz;
 		return true;
 	}
+	size_t tell() const {
+		return read_offset;
+	}
+	bool seek(size_t offset) {
+		if (offset > data.size()) {
+			return false;
+		}
+		read_offset = offset;
+		return true;
+	}
 	bool getRAW(uint8_t* ptr, size_t sz);
 	bool getRAW(std::string& str, size_t sz);
 	bool getString(std::string& str);
 	bool getLongString(std::string& str);
+
+	const std::string& getNodeData() const {
+		return data;
+	}
 
 	BinaryNode* getChild();
 	// Returns this on success, nullptr on failure
@@ -419,9 +433,15 @@ public:
 	~MemoryNodeFileWriteHandle() override;
 
 	void reset();
+	void rewind() {
+		local_write_index = 0;
+	}
 	void close() override;
 
 	size_t getSize();
+	const uint8_t* getData() const {
+		return cache;
+	}
 
 protected:
 	void renewCache() override;
