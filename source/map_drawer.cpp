@@ -644,21 +644,21 @@ void MapDrawer::DrawIngameBox() {
 	}
 
 	// hidden tiles
-	drawRect(box_start_x, box_start_y, box_end_x - box_start_x, box_end_y - box_start_y, *wxRED);
+	drawRect(box_start_x, box_start_y, box_end_x - box_start_x, box_end_y - box_start_y, *wxRED, zoom);
 
 	// visible tiles
 	box_start_x += TileSize;
 	box_start_y += TileSize;
 	box_end_x -= 1 * TileSize;
 	box_end_y -= 1 * TileSize;
-	drawRect(box_start_x, box_start_y, box_end_x - box_start_x, box_end_y - box_start_y, *wxGREEN);
+	drawRect(box_start_x, box_start_y, box_end_x - box_start_x, box_end_y - box_start_y, *wxGREEN, zoom);
 
 	// player position
 	box_start_x += (ClientMapWidth - 3) / 2 * TileSize;
 	box_start_y += (ClientMapHeight - 3) / 2 * TileSize;
 	box_end_x = box_start_x + TileSize;
 	box_end_y = box_start_y + TileSize;
-	drawRect(box_start_x, box_start_y, box_end_x - box_start_x, box_end_y - box_start_y, *wxGREEN);
+	drawRect(box_start_x, box_start_y, box_end_x - box_start_x, box_end_y - box_start_y, *wxGREEN, zoom);
 
 	glEnable(GL_TEXTURE_2D);
 }
@@ -2164,8 +2164,8 @@ void MapDrawer::glColorCheck(Brush* brush, const Position& pos) {
 	}
 }
 
-void MapDrawer::drawRect(int x, int y, int w, int h, const wxColor& color, int width) {
-	renderer->drawRect(static_cast<float>(x), static_cast<float>(y), static_cast<float>(w), static_cast<float>(h), { color.Red(), color.Green(), color.Blue(), color.Alpha() }, static_cast<float>(width));
+void MapDrawer::drawRect(int x, int y, int w, int h, const wxColor& color, float width) {
+	renderer->drawRect(static_cast<float>(x), static_cast<float>(y), static_cast<float>(w), static_cast<float>(h), { color.Red(), color.Green(), color.Blue(), color.Alpha() }, width);
 }
 
 void MapDrawer::drawFilledRect(int x, int y, int w, int h, const wxColor& color) {

@@ -341,7 +341,7 @@ protected:
 	void glColor(wxColor color);
 	void glColor(BrushColor color);
 	void glColorCheck(Brush* brush, const Position& pos);
-	void drawRect(int x, int y, int w, int h, const wxColor& color, int width = 1);
+	void drawRect(int x, int y, int w, int h, const wxColor& color, float width = 1.0f);
 	void drawFilledRect(int x, int y, int w, int h, const wxColor& color);
 	void glFillQuad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3);
 	GLColor m_brushColor { 255, 255, 255, 128 };
